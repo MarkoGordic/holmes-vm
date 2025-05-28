@@ -25,7 +25,6 @@ else {
     Write-Host "Chocolatey is ready!" -ForegroundColor Green
 }
 
-# Install Tools
 Write-Host "Installing Wireshark..." -ForegroundColor Magenta
 choco install wireshark -y > $null 2>&1
 if ($LASTEXITCODE -eq 0) {
@@ -34,5 +33,40 @@ if ($LASTEXITCODE -eq 0) {
 else {
     Write-Host "Wireshark installation failed." -ForegroundColor Red
 }
+
+Write-Host "Installing .NET 6.0 Desktop Runtime..." -ForegroundColor Magenta
+choco install dotnet-6.0-desktopruntime -y > $null 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host ".NET 6.0 Desktop Runtime installed successfully!" -ForegroundColor Green
+}
+else {
+    Write-Host "Failed to install .NET 6.0 Desktop Runtime." -ForegroundColor Red
+}
+
+Write-Host "Installing DnSpyEx..." -ForegroundColor Magenta
+choco install dnspyex -y > $null 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "DnSpyEx installed successfully!" -ForegroundColor Green
+}
+else {
+    Write-Host "DnSpyEx installation failed." -ForegroundColor Red
+}
+
+Write-Host "Installing PeStudio..." -ForegroundColor Magenta
+choco install pestudio -y > $null 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "PeStudio installed successfully!" -ForegroundColor Green
+}
+else {
+    Write-Host "PeStudio installation failed." -ForegroundColor Red
+}
+
+# Dot-source the utility script and call the function
+. "$PSScriptRoot\util\install-eztools.ps1"
+Install-EZTools
+
+# Install RegRipper
+. "$PSScriptRoot\util\install-regripper.ps1"
+Install-RegRipper
 
 Write-Host "`nSetup complete! Welcome to Artemis VM!" -ForegroundColor Magenta
