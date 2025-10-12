@@ -157,17 +157,28 @@ function Install-ChocoPackage {
     )
     if (-not $ForceReinstall -and (Test-ChocoPackageInstalled -Name $Name)) {
         Write-Log -Level Success -Message "Package already installed: $Name"
-        return
+        return $true
     }
     $args = @('install', $Name, '-y', '--no-progress')
     if ($Version) { $args += @('--version', $Version) }
     if ($ForceReinstall) { $args += '--force' }
     if ($PSCmdlet.ShouldProcess($Name, 'choco install')) {
         & choco @args | Out-Null
-        if ($LASTEXITCODE -ne 0 -or -not (Test-ChocoPackageInstalled -Name $Name)) {
-            throw "Failed to install $Name via Chocolatey. ExitCode=$LASTEXITCODE"
+        # 0 = success, 3010 = success with reboot required
+        if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq 3010) {
+            if (-not (Test-ChocoPackageInstalled -Name $Name)) {
+                Write-Log -Level Warn -Message "$Name reported success but not detected as installed."
+                return $false
+            }
+            if ($LASTEXITCODE -eq 3010) {
+                Write-Log -Level Warn -Message "$Name installed; reboot required (exit code 3010)."
+            } else {
+                Write-Log -Level Success -Message "$Name installed."
+            }
+            return $true
         }
-        Write-Log -Level Success -Message "$Name installed."
+        Write-Log -Level Error -Message "Failed to install $Name via Chocolatey. ExitCode=$LASTEXITCODE"
+        return $false
     }
 }
 
@@ -191,6 +202,24 @@ function New-ShortcutsFromFolder {
             $sc.Description = $_.BaseName
             $sc.Save()
         }
+    }
+}
+
+function Invoke-Step {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][scriptblock]$Action,
+        [switch]$ContinueOnError
+    )
+    try {
+        & $Action
+        Write-Log -Level Success -Message "$Name completed."
+        return $true
+    } catch {
+        Write-Log -Level Error -Message "$Name failed: $($_.Exception.Message)"
+        if ($ContinueOnError) { return $false }
+        throw
     }
 }
 

@@ -39,26 +39,26 @@ try {
     }
 
     # Ensure Chocolatey
-    Ensure-Chocolatey
+    Invoke-Step -Name 'Ensure Chocolatey' -ContinueOnError -Action { Ensure-Chocolatey }
 
     if (-not $SkipWireshark) {
         Write-Log -Level Info -Message 'Installing Wireshark...'
-        Install-ChocoPackage -Name 'wireshark' -ForceReinstall:$ForceReinstall
+        Invoke-Step -Name 'Install Wireshark' -ContinueOnError -Action { Install-ChocoPackage -Name 'wireshark' -ForceReinstall:$ForceReinstall | Out-Null }
     } else { Write-Log -Level Info -Message 'Skipping Wireshark.' }
 
     if (-not $SkipDotNetDesktop) {
         Write-Log -Level Info -Message 'Installing .NET 6.0 Desktop Runtime...'
-        Install-ChocoPackage -Name 'dotnet-6.0-desktopruntime' -ForceReinstall:$ForceReinstall
+        Invoke-Step -Name 'Install .NET Desktop Runtime' -ContinueOnError -Action { Install-ChocoPackage -Name 'dotnet-6.0-desktopruntime' -ForceReinstall:$ForceReinstall | Out-Null }
     } else { Write-Log -Level Info -Message 'Skipping .NET Desktop Runtime.' }
 
     if (-not $SkipDnSpyEx) {
         Write-Log -Level Info -Message 'Installing DnSpyEx...'
-        Install-ChocoPackage -Name 'dnspyex' -ForceReinstall:$ForceReinstall
+        Invoke-Step -Name 'Install DnSpyEx' -ContinueOnError -Action { Install-ChocoPackage -Name 'dnspyex' -ForceReinstall:$ForceReinstall | Out-Null }
     } else { Write-Log -Level Info -Message 'Skipping DnSpyEx.' }
 
     if (-not $SkipPeStudio) {
         Write-Log -Level Info -Message 'Installing PeStudio...'
-        Install-ChocoPackage -Name 'pestudio' -ForceReinstall:$ForceReinstall
+        Invoke-Step -Name 'Install PeStudio' -ContinueOnError -Action { Install-ChocoPackage -Name 'pestudio' -ForceReinstall:$ForceReinstall | Out-Null }
     } else { Write-Log -Level Info -Message 'Skipping PeStudio.' }
 
     # Install EZ Tools
@@ -88,12 +88,14 @@ try {
         $assetPath = Join-Path $PSScriptRoot 'assets/wallpaper.jpg'
         if (Test-Path -LiteralPath $assetPath) {
             $wallDir = 'C:\\Tools\\Wallpapers'
-            Ensure-Directory -Path $wallDir
+            Invoke-Step -Name 'Prepare wallpaper directory' -ContinueOnError -Action { Ensure-Directory -Path $wallDir }
             $destPath = Join-Path $wallDir 'holmes-wallpaper.jpg'
-            if ($PSCmdlet.ShouldProcess($destPath, 'Copy wallpaper')) {
-                Copy-Item -Path $assetPath -Destination $destPath -Force
+            Invoke-Step -Name 'Copy wallpaper' -ContinueOnError -Action {
+                if ($PSCmdlet.ShouldProcess($destPath, 'Copy wallpaper')) {
+                    Copy-Item -Path $assetPath -Destination $destPath -Force
+                }
             }
-            Set-Wallpaper -ImagePath $destPath -Style Fill
+            Invoke-Step -Name 'Apply wallpaper' -ContinueOnError -Action { Set-Wallpaper -ImagePath $destPath -Style Fill }
         } else {
             Write-Log -Level Warn -Message "Wallpaper not found at $assetPath; skipping."
         }
