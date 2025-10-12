@@ -1,12 +1,16 @@
 #Requires -Version 5.1
 #Requires -RunAsAdministrator
 <#
-    Holmes VM: Blue Team Swiss Knife
-    Safe, idempotent setup with modular installers and Chocolatey packages.
+    Holmes VM: Python-first orchestrator
+    This PowerShell shim ensures Python is present and launches holmes_setup.py (Tkinter GUI).
 #>
 
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding()]
 param(
+    [switch]$NoGui,
+    [switch]$WhatIf,
+    [switch]$ForceReinstall,
+    [string]$LogDir,
     [switch]$SkipWireshark,
     [switch]$SkipDotNetDesktop,
     [switch]$SkipDnSpyEx,
@@ -17,156 +21,106 @@ param(
     [switch]$SkipNetworkCheck,
     [switch]$SkipChainsaw,
     [switch]$SkipVSCode,
-    [switch]$SkipSQLiteBrowser,
-    [switch]$ForceReinstall
+    [switch]$SkipSQLiteBrowser
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Write-Host '==== Holmes VM: Blue Team Swiss Knife ====' -ForegroundColor Magenta
+function Ensure-ChocoPython {
+    # Ensure Chocolatey first (if module is available)
+    $modulePath = Join-Path $PSScriptRoot 'modules/Holmes.Common.psm1'
+    if (Test-Path -LiteralPath $modulePath) {
+        try { Import-Module $modulePath -Force -DisableNameChecking } catch { }
+        try { if (Get-Command Ensure-Chocolatey -ErrorAction SilentlyContinue) { Ensure-Chocolatey | Out-Null } } catch { }
+    }
+
+    # Install or upgrade to latest Python
+    if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
+        Write-Host 'Ensuring latest Python via Chocolatey (upgrade)...' -ForegroundColor Cyan
+        & choco upgrade python -y --no-progress | Out-Null
+    }
+    elseif (Get-Command Install-ChocoPackage -ErrorAction SilentlyContinue) {
+        Write-Host 'Installing Python via Chocolatey helper...' -ForegroundColor Cyan
+        Install-ChocoPackage -Name 'python' | Out-Null
+    } else {
+        Write-Host 'Chocolatey not detected; attempting direct choco call (may fail)...' -ForegroundColor Yellow
+        choco install python -y --no-progress | Out-Null
+    }
+
+    # Refresh PATH in current session from Machine and User to pick up new entries
+    try {
+        $machinePath = [Environment]::GetEnvironmentVariable('Path','Machine')
+        $userPath = [Environment]::GetEnvironmentVariable('Path','User')
+        if ($machinePath -and $userPath) { $env:Path = "$machinePath;$userPath" }
+        elseif ($machinePath) { $env:Path = $machinePath }
+        elseif ($userPath) { $env:Path = $userPath }
+    } catch { }
+
+    # Ensure Chocolatey bin is on PATH (contains python shim)
+    try {
+        if ($env:ChocolateyInstall) {
+            $chocoBin = Join-Path $env:ChocolateyInstall 'bin'
+            if (Test-Path -LiteralPath $chocoBin) {
+                if (-not ($env:Path -split ';' | Where-Object { $_ -ieq $chocoBin })) { $env:Path = "$env:Path;$chocoBin" }
+            }
+        }
+    } catch { }
+
+    # If still not found, try to locate python.exe in common locations and add to PATH
+    if (-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command py -ErrorAction SilentlyContinue)) {
+        $candidate = Get-ChildItem -Path 'C:\' -Directory -Filter 'Python3*' -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+        if ($candidate) {
+            $pyExe = Join-Path $candidate.FullName 'python.exe'
+            $pyScripts = Join-Path $candidate.FullName 'Scripts'
+            if (Test-Path -LiteralPath $pyExe) {
+                if (-not ($env:Path -split ';' | Where-Object { $_ -ieq $candidate.FullName })) { $env:Path = "$env:Path;$($candidate.FullName)" }
+            }
+            if (Test-Path -LiteralPath $pyScripts) {
+                if (-not ($env:Path -split ';' | Where-Object { $_ -ieq $pyScripts })) { $env:Path = "$env:Path;$pyScripts" }
+            }
+        }
+    }
+}
+
+function Get-PythonExe {
+    if (Get-Command python -ErrorAction SilentlyContinue) { return 'python' }
+    if (Get-Command py -ErrorAction SilentlyContinue) { return 'py -3' }
+    return $null
+}
 
 try {
-    # Import common module
-    $modulePath = Join-Path $PSScriptRoot 'modules/Holmes.Common.psm1'
-    if (-not (Test-Path -LiteralPath $modulePath)) { throw "Common module not found at $modulePath" }
-    Import-Module $modulePath -Force -DisableNameChecking
+    Ensure-ChocoPython
+    $py = Get-PythonExe
+    if (-not $py) { throw 'Python not found after installation.' }
 
-    Assert-WindowsAndAdmin
+    $scriptPath = Join-Path $PSScriptRoot 'holmes_setup.py'
+    if (-not (Test-Path -LiteralPath $scriptPath)) { throw "Missing Python setup script at $scriptPath" }
 
-    if (-not $SkipNetworkCheck) {
-        Write-Log -Level Info -Message 'Checking network connectivity (GitHub + Google)...'
-        # Require at least 1 out of 2 endpoints to be reachable to proceed
-        Assert-NetworkConnectivity -Urls @('https://www.google.com/generate_204','https://github.com') -MinimumSuccess 1 -TimeoutSec 7
-    } else {
-        Write-Log -Level Warn -Message 'Skipping network connectivity check.'
-    }
+    $args = @()
+    if ($NoGui) { $args += '--no-gui' }
+    if ($WhatIf) { $args += '--what-if' }
+    if ($ForceReinstall) { $args += '--force-reinstall' }
+    if ($LogDir) { $args += @('--log-dir', $LogDir) }
+    if ($SkipWireshark) { $args += '--skip-wireshark' }
+    if ($SkipDotNetDesktop) { $args += '--skip-dotnet-desktop' }
+    if ($SkipDnSpyEx) { $args += '--skip-dnspyex' }
+    if ($SkipPeStudio) { $args += '--skip-pestudio' }
+    if ($SkipEZTools) { $args += '--skip-eztools' }
+    if ($SkipRegRipper) { $args += '--skip-regripper' }
+    if ($SkipWallpaper) { $args += '--skip-wallpaper' }
+    if ($SkipNetworkCheck) { $args += '--skip-network-check' }
+    if ($SkipChainsaw) { $args += '--skip-chainsaw' }
+    if ($SkipVSCode) { $args += '--skip-vscode' }
+    if ($SkipSQLiteBrowser) { $args += '--skip-sqlitebrowser' }
 
-    # Ensure Chocolatey
-    Invoke-Step -Name 'Ensure Chocolatey' -ContinueOnError -Action { Ensure-Chocolatey }
-
-    if (-not $SkipWireshark) {
-        Write-Log -Level Info -Message 'Installing Wireshark...'
-        Invoke-Step -Name 'Install Wireshark' -ContinueOnError -Action { Install-ChocoPackage -Name 'wireshark' -ForceReinstall:$ForceReinstall | Out-Null }
-    } else { Write-Log -Level Info -Message 'Skipping Wireshark.' }
-
-    if (-not $SkipDotNetDesktop) {
-        Write-Log -Level Info -Message 'Installing .NET 6.0 Desktop Runtime...'
-        Invoke-Step -Name 'Install .NET Desktop Runtime' -ContinueOnError -Action { Install-ChocoPackage -Name 'dotnet-6.0-desktopruntime' -ForceReinstall:$ForceReinstall | Out-Null }
-    } else { Write-Log -Level Info -Message 'Skipping .NET Desktop Runtime.' }
-
-    if (-not $SkipDnSpyEx) {
-        Write-Log -Level Info -Message 'Installing DnSpyEx...'
-        Invoke-Step -Name 'Install DnSpyEx' -ContinueOnError -Action { Install-ChocoPackage -Name 'dnspyex' -ForceReinstall:$ForceReinstall | Out-Null }
-    } else { Write-Log -Level Info -Message 'Skipping DnSpyEx.' }
-
-    if (-not $SkipPeStudio) {
-        Write-Log -Level Info -Message 'Installing PeStudio...'
-        Invoke-Step -Name 'Install PeStudio' -ContinueOnError -Action { Install-ChocoPackage -Name 'pestudio' -ForceReinstall:$ForceReinstall | Out-Null }
-    } else { Write-Log -Level Info -Message 'Skipping PeStudio.' }
-
-    # Install Visual Studio Code
-    if (-not $SkipVSCode) {
-        Write-Log -Level Info -Message 'Installing Visual Studio Code...'
-        Invoke-Step -Name 'Install VS Code' -ContinueOnError -Action { Install-ChocoPackage -Name 'vscode' -ForceReinstall:$ForceReinstall | Out-Null }
-        # Try to pin Code to taskbar
-        Invoke-Step -Name 'Pin VS Code to taskbar' -ContinueOnError -Action {
-            # Typical install path
-            $codeExe = 'C:\\Program Files\\Microsoft VS Code\\Code.exe'
-            if (-not (Test-Path -LiteralPath $codeExe)) {
-                $codeExe = 'C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe'
-            }
-            if (Test-Path -LiteralPath $codeExe) { Pin-TaskbarItem -Path $codeExe | Out-Null }
-            else { Write-Log -Level Warn -Message 'VS Code executable not found to pin.' }
-        }
-    } else { Write-Log -Level Info -Message 'Skipping VS Code.' }
-
-    # Install DB Browser for SQLite (SQLite database viewer)
-    if (-not $SkipSQLiteBrowser) {
-        Write-Log -Level Info -Message 'Installing DB Browser for SQLite...'
-        Invoke-Step -Name 'Install DB Browser for SQLite' -ContinueOnError -Action { Install-ChocoPackage -Name 'sqlitebrowser' -ForceReinstall:$ForceReinstall | Out-Null }
-        # Try to pin DB Browser to taskbar
-        Invoke-Step -Name 'Pin DB Browser to taskbar' -ContinueOnError -Action {
-            $dbExe = 'C:\\Program Files\\DB Browser for SQLite\\DB Browser for SQLite.exe'
-            if (-not (Test-Path -LiteralPath $dbExe)) {
-                $dbExe = 'C:\\Program Files (x86)\\DB Browser for SQLite\\DB Browser for SQLite.exe'
-            }
-            if (Test-Path -LiteralPath $dbExe) { Pin-TaskbarItem -Path $dbExe | Out-Null }
-            else { Write-Log -Level Warn -Message 'DB Browser executable not found to pin.' }
-        }
-    } else { Write-Log -Level Info -Message 'Skipping DB Browser for SQLite.' }
-
-    # Install EZ Tools
-    if (-not $SkipEZTools) {
-        . "$PSScriptRoot\util\install-eztools.ps1"
-        Invoke-Step -Name 'Install EZ Tools' -ContinueOnError -Action {
-            $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
-            $useWhatIf = ($WhatIfPreference -eq $true)
-            if ($useVerbose -and $useWhatIf) { Install-EZTools -Verbose -WhatIf }
-            elseif ($useVerbose) { Install-EZTools -Verbose }
-            elseif ($useWhatIf) { Install-EZTools -WhatIf }
-            else { Install-EZTools }
-        }
-        # Try to pin MFTExplorer from EZ Tools if present
-        Invoke-Step -Name 'Pin MFTExplorer to taskbar' -ContinueOnError -Action {
-            $mftExplorer = 'C:\\Tools\\EricZimmermanTools\\net6\\MFTExplorer.exe'
-            if (Test-Path -LiteralPath $mftExplorer) { Pin-TaskbarItem -Path $mftExplorer | Out-Null }
-            else { Write-Log -Level Info -Message 'MFTExplorer.exe not found in default EZ Tools path; skipping pin.' }
-        }
-    } else { Write-Log -Level Info -Message 'Skipping EZ Tools.' }
-
-    # Install RegRipper
-    if (-not $SkipRegRipper) {
-        . "$PSScriptRoot\util\install-regripper.ps1"
-        Invoke-Step -Name 'Install RegRipper' -ContinueOnError -Action {
-            $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
-            $useWhatIf = ($WhatIfPreference -eq $true)
-            if ($useVerbose -and $useWhatIf) { Install-RegRipper -Verbose -WhatIf }
-            elseif ($useVerbose) { Install-RegRipper -Verbose }
-            elseif ($useWhatIf) { Install-RegRipper -WhatIf }
-            else { Install-RegRipper }
-        }
-    } else { Write-Log -Level Info -Message 'Skipping RegRipper.' }
-
-    # Install Chainsaw
-    if (-not $SkipChainsaw) {
-        . "$PSScriptRoot\util\install-chainsaw.ps1"
-        Invoke-Step -Name 'Install Chainsaw' -ContinueOnError -Action {
-            $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
-            $useWhatIf = ($WhatIfPreference -eq $true)
-            if ($useVerbose -and $useWhatIf) { Install-Chainsaw -Verbose -WhatIf }
-            elseif ($useVerbose) { Install-Chainsaw -Verbose }
-            elseif ($useWhatIf) { Install-Chainsaw -WhatIf }
-            else { Install-Chainsaw }
-        }
-    } else { Write-Log -Level Info -Message 'Skipping Chainsaw.' }
-
-    # Set Wallpaper
-    if (-not $SkipWallpaper) {
-        $assetPath = Join-Path $PSScriptRoot 'assets/wallpaper.jpg'
-        if (Test-Path -LiteralPath $assetPath) {
-            $wallDir = 'C:\\Tools\\Wallpapers'
-            Invoke-Step -Name 'Prepare wallpaper directory' -ContinueOnError -Action { Ensure-Directory -Path $wallDir }
-            $destPath = Join-Path $wallDir 'holmes-wallpaper.jpg'
-            Invoke-Step -Name 'Copy wallpaper' -ContinueOnError -Action {
-                if ($PSCmdlet.ShouldProcess($destPath, 'Copy wallpaper')) {
-                    Copy-Item -Path $assetPath -Destination $destPath -Force
-                }
-            }
-            Invoke-Step -Name 'Apply wallpaper' -ContinueOnError -Action { Set-Wallpaper -ImagePath $destPath -Style Fill }
-        } else {
-            Write-Log -Level Warn -Message "Wallpaper not found at $assetPath; skipping."
-        }
-    } else { Write-Log -Level Info -Message 'Skipping wallpaper setup.' }
-
-    # Apply Windows appearance (Dark mode + blue accent)
-    Invoke-Step -Name 'Apply Windows appearance' -ContinueOnError -Action {
-        Set-WindowsAppearance -DarkMode -AccentHex '#0078D7' -ShowAccentOnTaskbar
-    }
-
-    Write-Host "`nSetup complete! Welcome to Holmes VM!" -ForegroundColor Magenta
+    $cmd = "$py `"$scriptPath`" $($args -join ' ')"
+    Write-Host "Launching Python setup UI..." -ForegroundColor Magenta
+    # Inherit console; show UI
+    & cmd /c $cmd
+    exit $LASTEXITCODE
 }
 catch {
-    Write-Log -Level Error -Message "Setup failed: $($_.Exception.Message)"
-    if ($PSBoundParameters['Verbose']) { Write-Error -ErrorRecord $_ }
+    Write-Host "Setup failed to start: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
