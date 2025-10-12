@@ -1,52 +1,67 @@
-# Artemis VM 🌌  
-_The Blue Team’s Best Friend_
+# Artemis VM (Holmes VM) 🌌
+The Blue Team’s Best Friend — safe, modular, and idempotent setup.
 
 ---
 
-# WORK IN PROGRESS 🚧
+## What it installs
 
----
+- Wireshark (Chocolatey)
+- .NET 6 Desktop Runtime (Chocolatey)
+- DnSpyEx (Chocolatey)
+- PeStudio (Chocolatey)
+- Eric Zimmerman's Tools (direct from vendor)
+- RegRipper 4.0 (from GitHub)
 
-## What is Artemis VM?
+## Prerequisites
 
-**Artemis VM** is your all-in-one, ready-to-go virtual machine for defenders, blue teamers, digital forensics experts, threat hunters, and OSINT practitioners.  
-Hand-picked and meticulously curated, Artemis brings together the **must-have tools** for:
+- Windows host
+- Elevated PowerShell session (Run as Administrator)
+- Internet connectivity
+- PowerShell 5.1+ (7+ recommended)
 
-- Incident Response 🚨
-- Digital Forensics 🔎
-- Threat Intelligence 🧠
-- OSINT Investigations 🌐
-- General Blue Team Operations 🛡️
+## Quick start
 
-Whether you’re handling a breach, analyzing artifacts, or hunting threats, Artemis VM adapts to your workflow and gives you a head start.
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force
+cd <path-to-repo>
+./setup.ps1
+```
 
----
+Add `-Verbose` for details and `-WhatIf` to simulate actions.
 
-## Why Artemis?
+## Options
 
-- **All-in-one toolkit:** The best utilities and frameworks, selected and configured for real-world use.
-- **Quick setup:** No more hunting for downloads or dependencies—just run the script, and you’re ready.
-- **Customizable:** Built for you to adapt and extend for your specific needs.
-- **Community-driven:** Open to suggestions and improvements from all defenders.
+`setup.ps1` switches:
 
----
+- `-SkipWireshark`
+- `-SkipDotNetDesktop`
+- `-SkipDnSpyEx`
+- `-SkipPeStudio`
+- `-SkipEZTools`
+- `-SkipRegRipper`
+- `-ForceReinstall` (reinstall Chocolatey packages even if present)
 
-## Getting Started
+Example:
 
-1. **Clone or download this repo.**
-2. **Run `setup.ps1` as Administrator:**
-    ```powershell
-    powershell -ExecutionPolicy Bypass -File .\setup.ps1
-    ```
-3. **Let Artemis do the work!**  
-   Chocolatey and essential blue team tools will be installed automatically.
+```powershell
+./setup.ps1 -SkipPeStudio -SkipDnSpyEx -Verbose
+```
 
----
+## Structure
+
+- `modules/Holmes.Common.psm1` – shared helpers (logging, Chocolatey, downloads, PATH, shortcuts)
+- `util/install-eztools.ps1` – Eric Zimmerman's tools installer
+- `util/install-regripper.ps1` – RegRipper installer
+- `setup.ps1` – orchestrator script
+
+## Safety and idempotency
+
+- Checks Windows and Administrator
+- Uses `-WhatIf`/`-Verbose` where supported
+- Chocolatey installs are idempotent
+- Download retries, TLS 1.2 enablement
+- PATH updates are additive and non-duplicating
 
 ## Contributing
 
-Have a favorite tool, script, or workflow?  
-
-**Contributions, tool suggestions, and feedback are always welcome!** 🚀
-
-Let’s make Artemis VM the ultimate sidekick for defenders everywhere.
+Contributions, tool suggestions, and feedback are welcome! 🚀

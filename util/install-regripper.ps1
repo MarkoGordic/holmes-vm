@@ -1,41 +1,30 @@
 function Install-RegRipper {
-    Write-Host "Installing RegRipper 4.0..." -ForegroundColor Magenta
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [string]$Destination = 'C:\\Tools\\RegRipper4.0'
+    )
 
-    $regripperDir = "C:\\Tools\\RegRipper4.0"
-    $zipUrl = "https://github.com/keydet89/RegRipper4.0/archive/refs/heads/main.zip"
-    $zipPath = "$env:TEMP\RegRipper4.0.zip"
-    $desktopShortcutDir = "$env:USERPROFILE\Desktop\RegRipper4.0"
+    Write-Log -Level Info -Message 'Installing RegRipper 4.0...'
 
-    # Create directories if they don't exist
-    if (-not (Test-Path -Path $regripperDir)) {
-        New-Item -ItemType Directory -Path $regripperDir | Out-Null
-    }
-    if (-not (Test-Path -Path $desktopShortcutDir)) {
-        New-Item -ItemType Directory -Path $desktopShortcutDir | Out-Null
-    }
+    $regripperDir = $Destination
+    $zipUrl = 'https://github.com/keydet89/RegRipper4.0/archive/refs/heads/main.zip'
+    $zipPath = Join-Path $env:TEMP 'RegRipper4.0.zip'
+    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'RegRipper4.0'
 
-    # Download the ZIP archive
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+    Ensure-Directory -Path $regripperDir
+    Ensure-Directory -Path $desktopShortcutDir
 
-    # Extract the ZIP archive
-    Expand-Archive -Path $zipPath -DestinationPath $regripperDir -Force
+    Invoke-SafeDownload -Uri $zipUrl -OutFile $zipPath
+    Expand-Zip -ZipPath $zipPath -Destination $regripperDir
 
     # If the extracted folder is RegRipper4.0-main, move its contents up
     $mainFolder = Join-Path $regripperDir 'RegRipper4.0-main'
-    if (Test-Path $mainFolder) {
-        Get-ChildItem -Path $mainFolder | Move-Item -Destination $regripperDir -Force
+    if (Test-Path -LiteralPath $mainFolder) {
+        Get-ChildItem -Path $mainFolder -Force | Move-Item -Destination $regripperDir -Force
         Remove-Item -Path $mainFolder -Recurse -Force
     }
 
     # Create shortcuts to all .exe files in RegRipper4.0 on Desktop
-    $shell = New-Object -ComObject WScript.Shell
-    Get-ChildItem -Path $regripperDir -Filter *.exe | ForEach-Object {
-        $shortcut = $shell.CreateShortcut("$desktopShortcutDir\$($_.Name).lnk")
-        $shortcut.TargetPath = $_.FullName
-        $shortcut.WorkingDirectory = $regripperDir
-        $shortcut.WindowStyle = 1
-        $shortcut.Description = $_.BaseName
-        $shortcut.Save()
-    }
-    Write-Host "Shortcuts to RegRipper 4.0 created on Desktop." -ForegroundColor Green
+    New-ShortcutsFromFolder -Folder $regripperDir -Filter '*.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $regripperDir
+    Write-Log -Level Success -Message 'Shortcuts to RegRipper 4.0 created on Desktop.'
 }

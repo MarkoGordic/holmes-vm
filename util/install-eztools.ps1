@@ -1,51 +1,47 @@
 function Install-EZTools {
-    Write-Host "Installing Eric Zimmerman's Tools..." -ForegroundColor Magenta
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [string]$Destination = 'C:\\Tools\\EricZimmermanTools',
+        [string]$NetVersion = '6'
+    )
 
-    $ezToolsDir = "C:\\Tools\\EricZimmermanTools"
-    $ezToolsZip = "$env:TEMP\Get-ZimmermanTools.zip"
-    $ezToolsScript = "$ezToolsDir\Get-ZimmermanTools.ps1"
-    $ezToolsNetDir = "$ezToolsDir\net6"
-    $desktopShortcutDir = "$env:USERPROFILE\Desktop\EricZimmermanTools"
+    Write-Log -Level Info -Message "Installing Eric Zimmerman's Tools..."
 
-    # Create directories if they don't exist
-    if (-not (Test-Path -Path $ezToolsDir)) {
-        New-Item -ItemType Directory -Path $ezToolsDir | Out-Null
-    }
-    if (-not (Test-Path -Path $desktopShortcutDir)) {
-        New-Item -ItemType Directory -Path $desktopShortcutDir | Out-Null
-    }
+    $ezToolsDir = $Destination
+    $ezToolsZip = Join-Path $env:TEMP 'Get-ZimmermanTools.zip'
+    $ezToolsScript = Join-Path $ezToolsDir 'Get-ZimmermanTools.ps1'
+    $ezToolsNetDir = Join-Path $ezToolsDir ("net$NetVersion")
+    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'EricZimmermanTools'
+
+    Ensure-Directory -Path $ezToolsDir
+    Ensure-Directory -Path $desktopShortcutDir
 
     # Download Get-ZimmermanTools.zip
-    Invoke-WebRequest -Uri "https://f001.backblazeb2.com/file/EricZimmermanTools/Get-ZimmermanTools.zip" -OutFile $ezToolsZip
+    Invoke-SafeDownload -Uri 'https://f001.backblazeb2.com/file/EricZimmermanTools/Get-ZimmermanTools.zip' -OutFile $ezToolsZip
 
-    # Extract the ZIP file
-    Expand-Archive -Path $ezToolsZip -DestinationPath $ezToolsDir -Force
-
-    # Unblock the PowerShell script
-    Unblock-File -Path $ezToolsScript
+    # Extract the ZIP file and unblock script
+    Expand-Zip -ZipPath $ezToolsZip -Destination $ezToolsDir
+    if (Test-Path -LiteralPath $ezToolsScript) { Unblock-File -Path $ezToolsScript }
 
     # Run the script to download the tools
-    Set-Location -Path $ezToolsDir
-    .\Get-ZimmermanTools.ps1 -Dest $ezToolsDir -NetVersion 6
+    Push-Location $ezToolsDir
+    try {
+        if ($PSCmdlet.ShouldProcess('Get-ZimmermanTools.ps1', 'Execute')) {
+            .\Get-ZimmermanTools.ps1 -Dest $ezToolsDir -NetVersion $NetVersion
+        }
+    }
+    finally { Pop-Location }
 
     # Add EZ Tools to system PATH
-    if (-not ($env:Path -like "*$ezToolsNetDir*")) {
-        [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$ezToolsNetDir", [EnvironmentVariableTarget]::Machine)
-        Write-Host "EZ Tools path added to system PATH." -ForegroundColor Green
-    }
-    else {
-        Write-Host "EZ Tools path already exists in system PATH." -ForegroundColor Yellow
+    if (Test-Path -LiteralPath $ezToolsNetDir) {
+        Add-PathIfMissing -Path $ezToolsNetDir -Scope Machine
+    } else {
+        Write-Log -Level Warn -Message "Expected tools directory not found: $ezToolsNetDir"
     }
 
     # Create shortcuts to all .exe files in net6 folder on Desktop
-    $shell = New-Object -ComObject WScript.Shell
-    Get-ChildItem -Path $ezToolsNetDir -Filter *.exe | ForEach-Object {
-        $shortcut = $shell.CreateShortcut("$desktopShortcutDir\$($_.Name).lnk")
-        $shortcut.TargetPath = $_.FullName
-        $shortcut.WorkingDirectory = $ezToolsNetDir
-        $shortcut.WindowStyle = 1
-        $shortcut.Description = $_.BaseName
-        $shortcut.Save()
+    if (Test-Path -LiteralPath $ezToolsNetDir) {
+        New-ShortcutsFromFolder -Folder $ezToolsNetDir -ShortcutDir $desktopShortcutDir -WorkingDir $ezToolsNetDir
+        Write-Log -Level Success -Message "Shortcuts to Eric Zimmerman's Tools created on Desktop."
     }
-    Write-Host "Shortcuts to Eric Zimmerman's Tools created on Desktop." -ForegroundColor Green
 }
