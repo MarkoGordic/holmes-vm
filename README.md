@@ -12,6 +12,7 @@ The Blue Team’s Best Friend — safe, modular, and idempotent setup.
 - Eric Zimmerman's Tools (direct from vendor)
 - RegRipper 4.0 (from GitHub)
  - Chainsaw (from GitHub releases)
+ - DB Browser for SQLite (Chocolatey)
 
 ## Prerequisites
 
@@ -41,6 +42,7 @@ Add `-Verbose` for details and `-WhatIf` to simulate actions.
 - `-SkipEZTools`
 - `-SkipRegRipper`
  - `-SkipChainsaw`
+ - `-SkipSQLiteBrowser`
 - `-ForceReinstall` (reinstall Chocolatey packages even if present)
 
 Example:

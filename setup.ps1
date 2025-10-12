@@ -16,6 +16,8 @@ param(
     [switch]$SkipWallpaper,
     [switch]$SkipNetworkCheck,
     [switch]$SkipChainsaw,
+    [switch]$SkipVSCode,
+    [switch]$SkipSQLiteBrowser,
     [switch]$ForceReinstall
 )
 
@@ -61,6 +63,37 @@ try {
         Write-Log -Level Info -Message 'Installing PeStudio...'
         Invoke-Step -Name 'Install PeStudio' -ContinueOnError -Action { Install-ChocoPackage -Name 'pestudio' -ForceReinstall:$ForceReinstall | Out-Null }
     } else { Write-Log -Level Info -Message 'Skipping PeStudio.' }
+
+    # Install Visual Studio Code
+    if (-not $SkipVSCode) {
+        Write-Log -Level Info -Message 'Installing Visual Studio Code...'
+        Invoke-Step -Name 'Install VS Code' -ContinueOnError -Action { Install-ChocoPackage -Name 'vscode' -ForceReinstall:$ForceReinstall | Out-Null }
+        # Try to pin Code to taskbar
+        Invoke-Step -Name 'Pin VS Code to taskbar' -ContinueOnError -Action {
+            # Typical install path
+            $codeExe = 'C:\\Program Files\\Microsoft VS Code\\Code.exe'
+            if (-not (Test-Path -LiteralPath $codeExe)) {
+                $codeExe = 'C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe'
+            }
+            if (Test-Path -LiteralPath $codeExe) { Pin-TaskbarItem -Path $codeExe | Out-Null }
+            else { Write-Log -Level Warn -Message 'VS Code executable not found to pin.' }
+        }
+    } else { Write-Log -Level Info -Message 'Skipping VS Code.' }
+
+    # Install DB Browser for SQLite (SQLite database viewer)
+    if (-not $SkipSQLiteBrowser) {
+        Write-Log -Level Info -Message 'Installing DB Browser for SQLite...'
+        Invoke-Step -Name 'Install DB Browser for SQLite' -ContinueOnError -Action { Install-ChocoPackage -Name 'sqlitebrowser' -ForceReinstall:$ForceReinstall | Out-Null }
+        # Try to pin DB Browser to taskbar
+        Invoke-Step -Name 'Pin DB Browser to taskbar' -ContinueOnError -Action {
+            $dbExe = 'C:\\Program Files\\DB Browser for SQLite\\DB Browser for SQLite.exe'
+            if (-not (Test-Path -LiteralPath $dbExe)) {
+                $dbExe = 'C:\\Program Files (x86)\\DB Browser for SQLite\\DB Browser for SQLite.exe'
+            }
+            if (Test-Path -LiteralPath $dbExe) { Pin-TaskbarItem -Path $dbExe | Out-Null }
+            else { Write-Log -Level Warn -Message 'DB Browser executable not found to pin.' }
+        }
+    } else { Write-Log -Level Info -Message 'Skipping DB Browser for SQLite.' }
 
     # Install EZ Tools
     if (-not $SkipEZTools) {

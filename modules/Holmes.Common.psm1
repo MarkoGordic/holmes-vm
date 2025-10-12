@@ -278,6 +278,8 @@ public class Win32Native {
     $SMTO_ABORTIFHUNG = 0x2
     $result = [UIntPtr]::Zero
     [void][Win32Native]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, 'ImmersiveColorSet', $SMTO_ABORTIFHUNG, 5000, [ref]$result)
+    # Also broadcast generic setting change to prompt more components
+    [void][Win32Native]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, $null, $SMTO_ABORTIFHUNG, 5000, [ref]$result)
 }
 
 function Set-WindowsAppearance {
@@ -292,6 +294,14 @@ function Set-WindowsAppearance {
         if ($DarkMode) {
             Set-RegistryDword -Path $personalize -Name 'AppsUseLightTheme' -Value 0
             Set-RegistryDword -Path $personalize -Name 'SystemUsesLightTheme' -Value 0
+        }
+        # Also set machine defaults for future accounts (best effort)
+        if ($DarkMode) {
+            $personalizeM = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'
+            try {
+                Set-RegistryDword -Path $personalizeM -Name 'AppsUseLightTheme' -Value 0
+                Set-RegistryDword -Path $personalizeM -Name 'SystemUsesLightTheme' -Value 0
+            } catch { Write-Log -Level Warn -Message "Could not set machine default dark mode: $($_.Exception.Message)" }
         }
         if ($ShowAccentOnTaskbar) {
             Set-RegistryDword -Path $personalize -Name 'ColorPrevalence' -Value 1
@@ -314,6 +324,35 @@ function Set-WindowsAppearance {
     }
     catch {
         Write-Log -Level Warn -Message "Failed to apply Windows appearance: $($_.Exception.Message)"
+    }
+}
+
+function Pin-TaskbarItem {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { throw "Item not found: $Path" }
+    try {
+        $shell = New-Object -ComObject Shell.Application
+        $folderPath = Split-Path -Parent $Path
+        $leaf = Split-Path -Leaf $Path
+        $folder = $shell.Namespace($folderPath)
+        $item = $folder.ParseName($leaf)
+        if (-not $item) { throw 'Shell item not found.' }
+        $verbs = @($item.Verbs())
+        # If already pinned, an unpin verb may be present
+        $unpin = $verbs | Where-Object { ($_.Name -replace '&','') -match 'Unpin from taskbar' -or $_.Name -match 'taskbarunpin' }
+        if ($unpin) { return $true }
+        $pin = $verbs | Where-Object { ($_.Name -replace '&','') -match 'Pin to taskbar' -or $_.Name -match 'taskbarpin' -or ($_.Name -replace '&','') -match 'Taskbar' }
+        if ($pin) {
+            if ($PSCmdlet.ShouldProcess($Path, 'Pin to taskbar')) { $pin.DoIt() }
+            return $true
+        } else {
+            Write-Log -Level Warn -Message 'Taskbar pin verb not available (OS may block programmatic pinning).'
+            return $false
+        }
+    } catch {
+        Write-Log -Level Warn -Message "Failed to pin to taskbar: $($_.Exception.Message)"
+        return $false
     }
 }
 

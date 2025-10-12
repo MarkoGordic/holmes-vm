@@ -63,63 +63,22 @@ function Install-Chainsaw {
             }
         }
 
-        # Create quick-hunt wrapper for easy usage
+        # Remove any legacy quick-run artifacts if present
         $wrapperPath = Join-Path $installDir 'chainsaw-quickhunt.ps1'
-        $wrapper = @'
-param(
-    [Parameter(Mandatory)][string]$EvtxPath,
-    [string]$RulesPath,
-    [string]$MappingPath,
-    [switch]$VerboseOutput
-)
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
-$binDir = $PSScriptRoot
-$rulesRoot = Join-Path $PSScriptRoot 'rules'
-$exe = Get-ChildItem -Path $binDir -Filter 'chainsaw.exe' -ErrorAction Stop | Select-Object -First 1
-if (-not $exe) { throw 'chainsaw.exe not found.' }
-if (-not (Test-Path -LiteralPath $EvtxPath)) { throw "EVTX path not found: $EvtxPath" }
-if (-not $RulesPath) {
-    $maybe = Join-Path $rulesRoot 'sigma/rules/windows'
-    if (Test-Path -LiteralPath $maybe) { $RulesPath = $maybe } else { $RulesPath = Join-Path $rulesRoot 'sigma/rules' }
-}
-if (-not (Test-Path -LiteralPath $RulesPath)) { throw "Rules path not found: $RulesPath" }
-if (-not $MappingPath) {
-    $mapDir = Join-Path $PSScriptRoot 'mappings'
-    if (Test-Path -LiteralPath $mapDir) {
-        $candidate = Get-ChildItem -Path $mapDir -Filter '*sigma*windows*.yml' -File | Select-Object -First 1
-        if (-not $candidate) { $candidate = Get-ChildItem -Path $mapDir -Filter '*.yml' -File | Select-Object -First 1 }
-        if ($candidate) { $MappingPath = $candidate.FullName }
-    }
-}
-if (-not $MappingPath) {
-    Write-Host 'Mapping file not found. Chainsaw may still run but results could be limited.' -ForegroundColor Yellow
-}
-$args = @('hunt','-s', $RulesPath)
-if ($MappingPath) { $args += @('-m', $MappingPath) }
-if ($VerboseOutput) { $args += '-v' }
-$args += $EvtxPath
-& $exe.FullName @args
-'@
-        if ($PSCmdlet.ShouldProcess($wrapperPath, 'Create quick-hunt wrapper')) {
-            $wrapper | Set-Content -Path $wrapperPath -Encoding UTF8 -Force
-        }
-
-        # Create a CMD shim for easy execution from PATH
         $shimPath = Join-Path $installDir 'chainsaw-quickhunt.cmd'
-        $shim = '@echo off
-setlocal
-set PSH=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe
-"%PSH%" -NoProfile -ExecutionPolicy Bypass -File "%~dp0chainsaw-quickhunt.ps1" %*
-endlocal
-'
-        if ($PSCmdlet.ShouldProcess($shimPath, 'Create quick-hunt shim')) {
-            $shim | Set-Content -Path $shimPath -Encoding ASCII -Force
+        if (Test-Path -LiteralPath $wrapperPath) {
+            if ($PSCmdlet.ShouldProcess($wrapperPath, 'Remove legacy quick-hunt wrapper')) {
+                Remove-Item -Path $wrapperPath -Force -ErrorAction SilentlyContinue
+            }
+        }
+        if (Test-Path -LiteralPath $shimPath) {
+            if ($PSCmdlet.ShouldProcess($shimPath, 'Remove legacy quick-hunt shim')) {
+                Remove-Item -Path $shimPath -Force -ErrorAction SilentlyContinue
+            }
         }
 
         # Create desktop shortcuts
     New-ShortcutsFromFolder -Folder $binDir -Filter 'chainsaw.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $binDir
-    New-ShortcutsFromFolder -Folder $installDir -Filter 'chainsaw-quickhunt.cmd' -ShortcutDir $desktopShortcutDir -WorkingDir $installDir
         Write-Log -Level Success -Message 'Chainsaw installed.'
     } else {
         Write-Log -Level Warn -Message 'chainsaw.exe not found after extraction.'
