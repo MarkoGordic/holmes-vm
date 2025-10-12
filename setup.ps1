@@ -14,6 +14,7 @@ param(
     [switch]$SkipEZTools,
     [switch]$SkipRegRipper,
     [switch]$SkipWallpaper,
+    [switch]$SkipNetworkCheck,
     [switch]$ForceReinstall
 )
 
@@ -28,6 +29,14 @@ try {
     Import-Module $modulePath -Force
 
     Assert-WindowsAndAdmin
+
+    if (-not $SkipNetworkCheck) {
+        Write-Log -Level Info -Message 'Checking network connectivity (GitHub + Google)...'
+        # Require at least 1 out of 2 endpoints to be reachable to proceed
+        Assert-NetworkConnectivity -Urls @('https://www.google.com/generate_204','https://github.com') -MinimumSuccess 1 -TimeoutSec 7
+    } else {
+        Write-Log -Level Warn -Message 'Skipping network connectivity check.'
+    }
 
     # Ensure Chocolatey
     Ensure-Chocolatey

@@ -9,6 +9,16 @@
 
 Set-StrictMode -Version Latest
 
+function Test-IsWindows {
+    [CmdletBinding()] param()
+    try {
+        if ($env:OS -eq 'Windows_NT') { return $true }
+    } catch { }
+    try {
+        return ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+    } catch { return $false }
+}
+
 function Write-Log {
     [CmdletBinding()]
     param(
@@ -26,7 +36,7 @@ function Write-Log {
 
 function Assert-WindowsAndAdmin {
     [CmdletBinding()] param()
-    if (-not $IsWindows) {
+    if (-not (Test-IsWindows)) {
         throw 'This script must be run on Windows.'
     }
     $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent())
@@ -183,6 +193,45 @@ function New-ShortcutsFromFolder {
             $sc.Save()
         }
     }
+}
+
+function Test-UrlReachable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [int]$TimeoutSec = 5
+    )
+    Set-Tls12IfNeeded
+    try {
+        $resp = Invoke-WebRequest -Uri $Url -Method Head -TimeoutSec $TimeoutSec -UseBasicParsing -ErrorAction Stop
+        return ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400)
+    } catch {
+        return $false
+    }
+}
+
+function Assert-NetworkConnectivity {
+    [CmdletBinding()]
+    param(
+        [string[]]$Urls = @('https://www.google.com/generate_204','https://github.com'),
+        [int]$TimeoutSec = 5,
+        [int]$MinimumSuccess = 0
+    )
+    if ($MinimumSuccess -le 0) { $MinimumSuccess = $Urls.Count }
+    $success = 0
+    foreach ($u in $Urls) {
+        $ok = Test-UrlReachable -Url $u -TimeoutSec $TimeoutSec
+        if ($ok) {
+            $success++
+            Write-Log -Level Success -Message "Reachable: $u"
+        } else {
+            Write-Log -Level Warn -Message "Not reachable: $u"
+        }
+    }
+    if ($success -lt $MinimumSuccess) {
+        throw "Network connectivity check failed. Reached $success of $($Urls.Count) required endpoints."
+    }
+    Write-Log -Level Success -Message "Network connectivity OK ($success/$($Urls.Count))."
 }
 
 function Set-Wallpaper {
