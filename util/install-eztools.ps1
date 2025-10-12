@@ -32,16 +32,33 @@ function Install-EZTools {
     }
     finally { Pop-Location }
 
-    # Add EZ Tools to system PATH
+    # Add EZ Tools to system PATH (both root and netX if present)
+    if (Test-Path -LiteralPath $ezToolsDir) {
+        Add-PathIfMissing -Path $ezToolsDir -Scope Machine
+    }
     if (Test-Path -LiteralPath $ezToolsNetDir) {
         Add-PathIfMissing -Path $ezToolsNetDir -Scope Machine
     } else {
         Write-Log -Level Warn -Message "Expected tools directory not found: $ezToolsNetDir"
     }
 
-    # Create shortcuts to all .exe files in net6 folder on Desktop
+    # Create shortcuts to all .exe files in netX folder on Desktop
     if (Test-Path -LiteralPath $ezToolsNetDir) {
         New-ShortcutsFromFolder -Folder $ezToolsNetDir -ShortcutDir $desktopShortcutDir -WorkingDir $ezToolsNetDir
-        Write-Log -Level Success -Message "Shortcuts to Eric Zimmerman's Tools created on Desktop."
     }
+
+    # Ensure MFTExplorer shortcut exists even if not under netX
+    $mft = Get-ChildItem -Path $ezToolsDir -Recurse -Filter 'MFTExplorer.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($mft) {
+        $shell = New-Object -ComObject WScript.Shell
+        $lnk = Join-Path $desktopShortcutDir 'MFTExplorer.exe.lnk'
+        $sc = $shell.CreateShortcut($lnk)
+        $sc.TargetPath = $mft.FullName
+        $sc.WorkingDirectory = $mft.Directory.FullName
+        $sc.WindowStyle = 1
+        $sc.Description = 'MFT Explorer'
+        $sc.Save()
+    }
+
+    Write-Log -Level Success -Message "Shortcuts to Eric Zimmerman's Tools created on Desktop."
 }

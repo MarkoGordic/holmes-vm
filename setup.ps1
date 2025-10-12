@@ -106,6 +106,12 @@ try {
             elseif ($useWhatIf) { Install-EZTools -WhatIf }
             else { Install-EZTools }
         }
+        # Try to pin MFTExplorer from EZ Tools if present
+        Invoke-Step -Name 'Pin MFTExplorer to taskbar' -ContinueOnError -Action {
+            $mftExplorer = 'C:\\Tools\\EricZimmermanTools\\net6\\MFTExplorer.exe'
+            if (Test-Path -LiteralPath $mftExplorer) { Pin-TaskbarItem -Path $mftExplorer | Out-Null }
+            else { Write-Log -Level Info -Message 'MFTExplorer.exe not found in default EZ Tools path; skipping pin.' }
+        }
     } else { Write-Log -Level Info -Message 'Skipping EZ Tools.' }
 
     # Install RegRipper
