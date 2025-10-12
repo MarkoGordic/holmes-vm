@@ -223,6 +223,100 @@ function Invoke-Step {
     }
 }
 
+function Set-RegistryDword {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$Value
+    )
+    New-Item -Path $Path -Force -ErrorAction SilentlyContinue | Out-Null
+    if ($PSCmdlet.ShouldProcess("$Path\\$Name", "Set DWORD=$Value")) {
+        New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType DWord -Force | Out-Null
+    }
+}
+
+function Convert-HexToArgbInt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Hex # formats: "#RRGGBB" or "RRGGBB" or "#AARRGGBB"
+    )
+    $clean = $Hex.Trim()
+    if ($clean.StartsWith('#')) { $clean = $clean.Substring(1) }
+    if ($clean.Length -eq 6) { $clean = "FF$clean" }
+    if ($clean.Length -ne 8) { throw "Invalid hex color: $Hex" }
+    return [int]([uint32]::Parse($clean, [System.Globalization.NumberStyles]::HexNumber))
+}
+
+function Convert-ArgbToAbgrInt {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][int]$Argb)
+    $a = ($Argb -band 0xFF000000)
+    $r = ($Argb -band 0x00FF0000) -shl 0
+    $g = ($Argb -band 0x0000FF00) -shl 0
+    $b = ($Argb -band 0x000000FF) -shl 0
+    $abgr = $a -bor (($Argb -band 0x0000FF00) -shl 8) -bor (($Argb -band 0x00FF0000) -shr 16) -bor (($Argb -band 0x000000FF) -shl 16)
+    return [int]$abgr
+}
+
+function Invoke-SettingsChangedBroadcast {
+    [CmdletBinding()] param()
+    $typeDefined = [System.AppDomain]::CurrentDomain.GetAssemblies() | ForEach-Object { $_.GetTypes() } | Where-Object { $_.Name -eq 'Win32Native' }
+    if (-not $typeDefined) {
+        $sig = @'
+using System;
+using System.Runtime.InteropServices;
+public class Win32Native {
+    [DllImport("user32.dll", SetLastError=true, CharSet=CharSet.Auto)]
+    public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+}
+'@
+        Add-Type -TypeDefinition $sig -ErrorAction SilentlyContinue
+    }
+    $HWND_BROADCAST = [IntPtr]0xffff
+    $WM_SETTINGCHANGE = 0x1A
+    $SMTO_ABORTIFHUNG = 0x2
+    $result = [UIntPtr]::Zero
+    [void][Win32Native]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, 'ImmersiveColorSet', $SMTO_ABORTIFHUNG, 5000, [ref]$result)
+}
+
+function Set-WindowsAppearance {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [switch]$DarkMode = $true,
+        [string]$AccentHex = '#0078D7',
+        [switch]$ShowAccentOnTaskbar = $true
+    )
+    try {
+        $personalize = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'
+        if ($DarkMode) {
+            Set-RegistryDword -Path $personalize -Name 'AppsUseLightTheme' -Value 0
+            Set-RegistryDword -Path $personalize -Name 'SystemUsesLightTheme' -Value 0
+        }
+        if ($ShowAccentOnTaskbar) {
+            Set-RegistryDword -Path $personalize -Name 'ColorPrevalence' -Value 1
+        }
+
+        $argb = Convert-HexToArgbInt -Hex $AccentHex
+        $abgr = Convert-ArgbToAbgrInt -Argb $argb
+
+        $dwm = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\DWM'
+        Set-RegistryDword -Path $dwm -Name 'AccentColor' -Value $abgr
+        Set-RegistryDword -Path $dwm -Name 'ColorizationColor' -Value $argb
+        Set-RegistryDword -Path $dwm -Name 'ColorPrevalence' -Value 1
+
+        $explorerAccent = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Accent'
+        Set-RegistryDword -Path $explorerAccent -Name 'AccentColorMenu' -Value $abgr
+        Set-RegistryDword -Path $explorerAccent -Name 'StartColorMenu' -Value $abgr
+
+        Invoke-SettingsChangedBroadcast
+        Write-Log -Level Success -Message "Windows appearance applied: DarkMode=$($DarkMode.IsPresent), Accent=$AccentHex"
+    }
+    catch {
+        Write-Log -Level Warn -Message "Failed to apply Windows appearance: $($_.Exception.Message)"
+    }
+}
+
 function Test-UrlReachable {
     [CmdletBinding()]
     param(

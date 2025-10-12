@@ -15,6 +15,7 @@ param(
     [switch]$SkipRegRipper,
     [switch]$SkipWallpaper,
     [switch]$SkipNetworkCheck,
+    [switch]$SkipChainsaw,
     [switch]$ForceReinstall
 )
 
@@ -83,6 +84,19 @@ try {
         else { Install-RegRipper }
     } else { Write-Log -Level Info -Message 'Skipping RegRipper.' }
 
+    # Install Chainsaw
+    if (-not $SkipChainsaw) {
+        . "$PSScriptRoot\util\install-chainsaw.ps1"
+        Invoke-Step -Name 'Install Chainsaw' -ContinueOnError -Action {
+            $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
+            $useWhatIf = ($WhatIfPreference -eq $true)
+            if ($useVerbose -and $useWhatIf) { Install-Chainsaw -Verbose -WhatIf }
+            elseif ($useVerbose) { Install-Chainsaw -Verbose }
+            elseif ($useWhatIf) { Install-Chainsaw -WhatIf }
+            else { Install-Chainsaw }
+        }
+    } else { Write-Log -Level Info -Message 'Skipping Chainsaw.' }
+
     # Set Wallpaper
     if (-not $SkipWallpaper) {
         $assetPath = Join-Path $PSScriptRoot 'assets/wallpaper.jpg'
@@ -100,6 +114,11 @@ try {
             Write-Log -Level Warn -Message "Wallpaper not found at $assetPath; skipping."
         }
     } else { Write-Log -Level Info -Message 'Skipping wallpaper setup.' }
+
+    # Apply Windows appearance (Dark mode + blue accent)
+    Invoke-Step -Name 'Apply Windows appearance' -ContinueOnError -Action {
+        Set-WindowsAppearance -DarkMode -AccentHex '#0078D7' -ShowAccentOnTaskbar
+    }
 
     Write-Host "`nSetup complete! Welcome to Holmes VM!" -ForegroundColor Magenta
 }

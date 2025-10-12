@@ -16,11 +16,15 @@ Context 'Dry-run installers' {
     BeforeAll {
         . "$PSScriptRoot/../util/install-eztools.ps1"
         . "$PSScriptRoot/../util/install-regripper.ps1"
+        . "$PSScriptRoot/../util/install-chainsaw.ps1"
     }
     It 'Install-EZTools supports WhatIf' {
         { Install-EZTools -WhatIf } | Should -Not -Throw
     }
     It 'Install-RegRipper supports WhatIf' {
         { Install-RegRipper -WhatIf } | Should -Not -Throw
+    }
+    It 'Install-Chainsaw supports WhatIf' {
+        { Install-Chainsaw -WhatIf } | Should -Not -Throw
     }
 }

@@ -11,6 +11,7 @@ The Blue Team’s Best Friend — safe, modular, and idempotent setup.
 - PeStudio (Chocolatey)
 - Eric Zimmerman's Tools (direct from vendor)
 - RegRipper 4.0 (from GitHub)
+ - Chainsaw (from GitHub releases)
 
 ## Prerequisites
 
@@ -39,6 +40,7 @@ Add `-Verbose` for details and `-WhatIf` to simulate actions.
 - `-SkipPeStudio`
 - `-SkipEZTools`
 - `-SkipRegRipper`
+ - `-SkipChainsaw`
 - `-ForceReinstall` (reinstall Chocolatey packages even if present)
 
 Example:
