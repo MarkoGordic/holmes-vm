@@ -39,8 +39,7 @@ function Assert-WindowsAndAdmin {
     if (-not (Test-IsWindows)) {
         throw 'This script must be run on Windows.'
     }
-    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent())
-        .IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if (-not $isAdmin) {
         throw 'Please run this script in an elevated PowerShell session (Run as Administrator).'
     }

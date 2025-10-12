@@ -26,7 +26,7 @@ try {
     # Import common module
     $modulePath = Join-Path $PSScriptRoot 'modules/Holmes.Common.psm1'
     if (-not (Test-Path -LiteralPath $modulePath)) { throw "Common module not found at $modulePath" }
-    Import-Module $modulePath -Force
+    Import-Module $modulePath -Force -DisableNameChecking
 
     Assert-WindowsAndAdmin
 
