@@ -20,8 +20,19 @@ function Install-RegRipper {
     # If the extracted folder is RegRipper4.0-main, move its contents up
     $mainFolder = Join-Path $regripperDir 'RegRipper4.0-main'
     if (Test-Path -LiteralPath $mainFolder) {
-        Get-ChildItem -Path $mainFolder -Force | Move-Item -Destination $regripperDir -Force
-        Remove-Item -Path $mainFolder -Recurse -Force
+        Get-ChildItem -Path $mainFolder -Force | ForEach-Object {
+            $dest = Join-Path $regripperDir $_.Name
+            try {
+                if (Test-Path -LiteralPath $dest) {
+                    # Skip existing files to avoid "already exists" errors
+                    return
+                }
+                Move-Item -Path $_.FullName -Destination $regripperDir -Force -ErrorAction Stop
+            } catch {
+                Write-Log -Level Warn -Message "Could not move $($_.Name): $($_.Exception.Message)"
+            }
+        }
+        try { Remove-Item -Path $mainFolder -Recurse -Force -ErrorAction Stop } catch { }
     }
 
     # Create shortcuts to all .exe files in RegRipper4.0 on Desktop

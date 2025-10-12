@@ -65,23 +65,27 @@ try {
     # Install EZ Tools
     if (-not $SkipEZTools) {
         . "$PSScriptRoot\util\install-eztools.ps1"
-        $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
-        $useWhatIf = ($WhatIfPreference -eq $true)
-        if ($useVerbose -and $useWhatIf) { Install-EZTools -Verbose -WhatIf }
-        elseif ($useVerbose) { Install-EZTools -Verbose }
-        elseif ($useWhatIf) { Install-EZTools -WhatIf }
-        else { Install-EZTools }
+        Invoke-Step -Name 'Install EZ Tools' -ContinueOnError -Action {
+            $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
+            $useWhatIf = ($WhatIfPreference -eq $true)
+            if ($useVerbose -and $useWhatIf) { Install-EZTools -Verbose -WhatIf }
+            elseif ($useVerbose) { Install-EZTools -Verbose }
+            elseif ($useWhatIf) { Install-EZTools -WhatIf }
+            else { Install-EZTools }
+        }
     } else { Write-Log -Level Info -Message 'Skipping EZ Tools.' }
 
     # Install RegRipper
     if (-not $SkipRegRipper) {
         . "$PSScriptRoot\util\install-regripper.ps1"
-        $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
-        $useWhatIf = ($WhatIfPreference -eq $true)
-        if ($useVerbose -and $useWhatIf) { Install-RegRipper -Verbose -WhatIf }
-        elseif ($useVerbose) { Install-RegRipper -Verbose }
-        elseif ($useWhatIf) { Install-RegRipper -WhatIf }
-        else { Install-RegRipper }
+        Invoke-Step -Name 'Install RegRipper' -ContinueOnError -Action {
+            $useVerbose = ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue')
+            $useWhatIf = ($WhatIfPreference -eq $true)
+            if ($useVerbose -and $useWhatIf) { Install-RegRipper -Verbose -WhatIf }
+            elseif ($useVerbose) { Install-RegRipper -Verbose }
+            elseif ($useWhatIf) { Install-RegRipper -WhatIf }
+            else { Install-RegRipper }
+        }
     } else { Write-Log -Level Info -Message 'Skipping RegRipper.' }
 
     # Install Chainsaw
