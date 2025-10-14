@@ -287,40 +287,66 @@ function Set-WindowsAppearance {
     param(
         [switch]$DarkMode = $true,
         [string]$AccentHex = '#0078D7',
-        [switch]$ShowAccentOnTaskbar = $true
+        [switch]$ShowAccentOnTaskbar = $true,
+        [switch]$EnableTransparency = $true,
+        [switch]$ApplyForAllUsers,
+        [switch]$RestartExplorer
     )
     try {
         $personalize = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'
-        if ($DarkMode) {
+        # Apply dark/light mode for Apps and System
+        if ($DarkMode.IsPresent) {
             Set-RegistryDword -Path $personalize -Name 'AppsUseLightTheme' -Value 0
             Set-RegistryDword -Path $personalize -Name 'SystemUsesLightTheme' -Value 0
+        } else {
+            Set-RegistryDword -Path $personalize -Name 'AppsUseLightTheme' -Value 1
+            Set-RegistryDword -Path $personalize -Name 'SystemUsesLightTheme' -Value 1
         }
-        # Also set machine defaults for future accounts (best effort)
-        if ($DarkMode) {
+        # Accent color on Start/Taskbar/Title bars
+        Set-RegistryDword -Path $personalize -Name 'ColorPrevalence' -Value ([int]($ShowAccentOnTaskbar.IsPresent))
+        # Transparency effects
+        if ($EnableTransparency.IsPresent) { Set-RegistryDword -Path $personalize -Name 'EnableTransparency' -Value 1 } else { Set-RegistryDword -Path $personalize -Name 'EnableTransparency' -Value 0 }
+
+        # Also set machine defaults (best effort) when requested
+        if ($ApplyForAllUsers) {
             $personalizeM = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'
             try {
-                Set-RegistryDword -Path $personalizeM -Name 'AppsUseLightTheme' -Value 0
-                Set-RegistryDword -Path $personalizeM -Name 'SystemUsesLightTheme' -Value 0
-            } catch { Write-Log -Level Warn -Message "Could not set machine default dark mode: $($_.Exception.Message)" }
-        }
-        if ($ShowAccentOnTaskbar) {
-            Set-RegistryDword -Path $personalize -Name 'ColorPrevalence' -Value 1
+                if ($DarkMode.IsPresent) {
+                    Set-RegistryDword -Path $personalizeM -Name 'AppsUseLightTheme' -Value 0
+                    Set-RegistryDword -Path $personalizeM -Name 'SystemUsesLightTheme' -Value 0
+                } else {
+                    Set-RegistryDword -Path $personalizeM -Name 'AppsUseLightTheme' -Value 1
+                    Set-RegistryDword -Path $personalizeM -Name 'SystemUsesLightTheme' -Value 1
+                }
+            } catch { Write-Log -Level Warn -Message "Could not set machine default theme: $($_.Exception.Message)" }
         }
 
+        # Accent conversion
         $argb = Convert-HexToArgbInt -Hex $AccentHex
         $abgr = Convert-ArgbToAbgrInt -Argb $argb
 
+        # DWM: title bar and colorization
         $dwm = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\DWM'
         Set-RegistryDword -Path $dwm -Name 'AccentColor' -Value $abgr
         Set-RegistryDword -Path $dwm -Name 'ColorizationColor' -Value $argb
         Set-RegistryDword -Path $dwm -Name 'ColorPrevalence' -Value 1
 
+        # Explorer Accent (Start menu etc.)
         $explorerAccent = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Accent'
         Set-RegistryDword -Path $explorerAccent -Name 'AccentColorMenu' -Value $abgr
         Set-RegistryDword -Path $explorerAccent -Name 'StartColorMenu' -Value $abgr
 
         Invoke-SettingsChangedBroadcast
-        Write-Log -Level Success -Message "Windows appearance applied: DarkMode=$($DarkMode.IsPresent), Accent=$AccentHex"
+        if ($RestartExplorer) {
+            try {
+                if ($PSCmdlet.ShouldProcess('explorer.exe','Restart to apply theme')) {
+                    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Milliseconds 500
+                    Start-Process explorer.exe
+                }
+            } catch { Write-Log -Level Warn -Message "Explorer restart failed: $($_.Exception.Message)" }
+        }
+        Write-Log -Level Success -Message "Windows appearance applied: DarkMode=$($DarkMode.IsPresent), Accent=$AccentHex, Transparency=$($EnableTransparency.IsPresent), ShowAccent=$($ShowAccentOnTaskbar.IsPresent)"
     }
     catch {
         Write-Log -Level Warn -Message "Failed to apply Windows appearance: $($_.Exception.Message)"
@@ -430,9 +456,10 @@ public class NativeMethods {
     public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
 }
 '@
-        if (-not ([System.AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetTypes().Name -contains 'NativeMethods' })) {
-            Add-Type -TypeDefinition $sig -ErrorAction Stop
-        }
+        # More robust type presence check
+        $typeLoaded = $false
+        try { $null = [NativeMethods]; $typeLoaded = $true } catch { $typeLoaded = $false }
+        if (-not $typeLoaded) { Add-Type -TypeDefinition $sig -ErrorAction Stop }
         $SPI_SETDESKWALLPAPER = 20
         $SPIF_UPDATEINIFILE = 0x01
         $SPIF_SENDWININICHANGE = 0x02

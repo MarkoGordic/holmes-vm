@@ -5,6 +5,14 @@ function Install-Chainsaw {
         [switch]$InstallRules = $true
     )
 
+    # Ensure common helpers are available when run standalone
+    try {
+        if (-not (Get-Command Write-Log -ErrorAction SilentlyContinue)) {
+            $commonPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'modules/Holmes.Common.psm1'
+            if (Test-Path -LiteralPath $commonPath) { Import-Module $commonPath -ErrorAction SilentlyContinue }
+        }
+    } catch { }
+
     Write-Log -Level Info -Message 'Installing Chainsaw...'
 
     $installDir = $Destination

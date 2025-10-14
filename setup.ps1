@@ -28,25 +28,114 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Invoke-DownloadStringRobust {
+    param(
+        [Parameter(Mandatory)][string[]]$Urls,
+        [int]$RetryCount = 3,
+        [int]$RetryDelaySec = 3
+    )
+    # Try WebClient and Invoke-WebRequest across URLs with retries
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+    foreach ($url in $Urls) {
+        for ($i=1; $i -le $RetryCount; $i++) {
+            try {
+                $wc = New-Object System.Net.WebClient
+                return $wc.DownloadString($url)
+            } catch {
+                try {
+                    $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -ErrorAction Stop
+                    if ($resp -and $resp.Content) { return $resp.Content }
+                } catch { }
+                if ($i -lt $RetryCount) { Start-Sleep -Seconds $RetryDelaySec }
+            }
+        }
+    }
+    return $null
+}
+
+function Install-ChocolateyRobust {
+    # Returns $true if Chocolatey is installed or installed successfully; otherwise $false
+    if (Get-Command choco.exe -ErrorAction SilentlyContinue) { return $true }
+    Write-Host 'Installing Chocolatey...' -ForegroundColor Cyan
+    try {
+        Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+    } catch { }
+    $urls = @(
+        'https://community.chocolatey.org/install.ps1',
+        'https://chocolatey.org/install.ps1'
+    )
+    $script = Invoke-DownloadStringRobust -Urls $urls -RetryCount 3 -RetryDelaySec 4
+    if (-not $script) { return $false }
+    try {
+        Invoke-Expression $script
+    } catch {
+        Write-Host "Chocolatey bootstrap execution failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    Start-Sleep -Seconds 3
+    return [bool](Get-Command choco.exe -ErrorAction SilentlyContinue)
+}
+
+function Ensure-PythonViaWinget {
+    try {
+        if (Get-Command python -ErrorAction SilentlyContinue -CommandType Application) { return $true }
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { return $false }
+        Write-Host 'Installing Python via winget...' -ForegroundColor Cyan
+        # Prefer latest stable Python package id
+        winget install -e --id Python.Python.3.12 --silent --accept-source-agreements --accept-package-agreements | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            winget install -e --id Python.Python --silent --accept-source-agreements --accept-package-agreements | Out-Null
+        }
+        return [bool](Get-Command python -ErrorAction SilentlyContinue -CommandType Application)
+    } catch { return $false }
+}
+
 function Ensure-ChocoPython {
-    # Ensure Chocolatey first (if module is available)
+    # 1) Try to ensure Chocolatey via common module if available
     $modulePath = Join-Path $PSScriptRoot 'modules/Holmes.Common.psm1'
     if (Test-Path -LiteralPath $modulePath) {
         try { Import-Module $modulePath -Force -DisableNameChecking } catch { }
-        try { if (Get-Command Ensure-Chocolatey -ErrorAction SilentlyContinue) { Ensure-Chocolatey | Out-Null } } catch { }
+        try {
+            if (Get-Command Ensure-Chocolatey -ErrorAction SilentlyContinue) { Ensure-Chocolatey | Out-Null }
+        } catch { Write-Host "Ensure-Chocolatey threw: $($_.Exception.Message)" -ForegroundColor Yellow }
     }
 
-    # Install or upgrade to latest Python
+    # 2) If still missing, bootstrap Chocolatey directly (robust)
+    if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
+        $ok = Install-ChocolateyRobust
+        if (-not $ok) {
+            Write-Host 'Chocolatey installation failed (network or policy). Will try Python via winget as a fallback to continue setup.' -ForegroundColor Yellow
+        }
+    }
+
+    # 3) Refresh PATH to include Chocolatey bin
+    try {
+        if (-not $env:ChocolateyInstall) { $env:ChocolateyInstall = 'C:\\ProgramData\\chocolatey' }
+        $paths = @()
+        if ($env:ChocolateyInstall) { $paths += (Join-Path $env:ChocolateyInstall 'bin') }
+        $machinePath = [Environment]::GetEnvironmentVariable('Path','Machine')
+        $userPath = [Environment]::GetEnvironmentVariable('Path','User')
+        $sessionPaths = ($env:Path -split ';')
+        foreach ($p in $paths) {
+            if ($p -and -not ($sessionPaths -contains $p)) { $env:Path = "$env:Path;$p" }
+        }
+        if ($machinePath -and $userPath) { $env:Path = "$machinePath;$userPath" }
+        elseif ($machinePath) { $env:Path = $machinePath }
+        elseif ($userPath) { $env:Path = $userPath }
+        # Ensure choco bin at end as well
+        $chocoBin = Join-Path $env:ChocolateyInstall 'bin'
+        if ($chocoBin -and -not (($env:Path -split ';') -contains $chocoBin)) { $env:Path = "$env:Path;$chocoBin" }
+    } catch { }
+
+    # 4) If Chocolatey exists, use it to ensure Python; otherwise try winget fallback
     if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
-        Write-Host 'Ensuring latest Python via Chocolatey (upgrade)...' -ForegroundColor Cyan
+        Write-Host 'Ensuring latest Python via Chocolatey...' -ForegroundColor Cyan
         & choco upgrade python -y --no-progress | Out-Null
     }
-    elseif (Get-Command Install-ChocoPackage -ErrorAction SilentlyContinue) {
-        Write-Host 'Installing Python via Chocolatey helper...' -ForegroundColor Cyan
-        Install-ChocoPackage -Name 'python' | Out-Null
-    } else {
-        Write-Host 'Chocolatey not detected; attempting direct choco call (may fail)...' -ForegroundColor Yellow
-        choco install python -y --no-progress | Out-Null
+    else {
+        $wingetOk = Ensure-PythonViaWinget
+        if (-not $wingetOk) {
+            throw 'Could not install Chocolatey (network/policy) and winget/Python fallback failed. Please connect to the internet or install Python 3 manually, then re-run setup.ps1.'
+        }
     }
 
     # Refresh PATH in current session from Machine and User to pick up new entries

@@ -427,7 +427,8 @@ def run_installer_ps(script_name: str, func: str, logger: Logger, args: str = ''
     ps1 = os.path.join(UTIL_DIR, script_name)
     if what_if and '-WhatIf' not in args:
         args = (args + ' -WhatIf').strip()
-    code = dot_source_and(ps1, f"{func} {args}")
+    # Ensure common module is loaded for Write-Log and helpers, then dot-source installer
+    code = import_common_and(dot_source_and(ps1, f"{func} {args}"))
     res = run_ps(code)
     if res.returncode != 0:
         logger.warn(f"{func} returned {res.returncode}: {res.stderr.strip()}")
@@ -553,7 +554,7 @@ def build_steps(args, logger: Logger):
     # 11. EZ Tools
     if not args.skip_eztools:
         steps.append(('Install EZ Tools', lambda: run_installer_ps('install-eztools.ps1', 'Install-EZTools', logger, args=(f"-LogDir '{LOG_DIR_DEFAULT}'"), what_if=args.what_if)))
-        steps.append(('Pin MFTExplorer', lambda: call_common('Pin-TaskbarItem', r"-Path 'C:\\Tools\\EricZimmermanTools\\net6\\MFTExplorer.exe'", logger)))
+        steps.append(('Pin MFTExplorer', lambda: _pin_mft_explorer(logger)))
         steps.append(('Pin Timeline Explorer', lambda: _pin_timeline_explorer(logger)))
     else:
         logger.info('Skipping EZ Tools.')
@@ -578,7 +579,7 @@ def build_steps(args, logger: Logger):
         logger.info('Skipping wallpaper setup.')
 
     # 15. Windows appearance
-    steps.append(('Apply Windows appearance', lambda: call_common('Set-WindowsAppearance', "-DarkMode -AccentHex '#0078D7' -ShowAccentOnTaskbar", logger)))
+    steps.append(('Apply Windows appearance', lambda: call_common('Set-WindowsAppearance', "-DarkMode -AccentHex '#0078D7' -ShowAccentOnTaskbar -EnableTransparency -ApplyForAllUsers -RestartExplorer", logger)))
 
     return steps
 
@@ -678,7 +679,7 @@ def build_steps_from_selection(selected_ids, args, logger: Logger):
         steps.append(('Copy wallpaper', lambda: copy_wallpaper(logger)))
         steps.append(('Apply wallpaper', lambda: _apply_wallpaper(logger)))
     if 'appearance' in selected_ids:
-        steps.append(('Apply Windows appearance', lambda: call_common('Set-WindowsAppearance', "-DarkMode -AccentHex '#0078D7' -ShowAccentOnTaskbar", logger)))
+        steps.append(('Apply Windows appearance', lambda: call_common('Set-WindowsAppearance', "-DarkMode -AccentHex '#0078D7' -ShowAccentOnTaskbar -EnableTransparency -ApplyForAllUsers -RestartExplorer", logger)))
 
     return steps
 
@@ -717,6 +718,31 @@ def _pin_timeline_explorer(logger: Logger):
             logger.success('Timeline Explorer pinned (or already pinned).')
             return
     logger.warn('Timeline Explorer executable not found to pin.')
+
+
+def _pin_mft_explorer(logger: Logger):
+    # Search for MFTExplorer.exe in typical EZ Tools locations
+    candidates = [
+        r"C:\\Tools\\EricZimmermanTools\\net6\\MFTExplorer.exe",
+        r"C:\\Tools\\EricZimmermanTools\\MFTExplorer.exe",
+    ]
+    # Try a quick recursive discovery via PowerShell if not found in fixed locations
+    found = None
+    for p in candidates:
+        if os.path.exists(p):
+            found = p
+            break
+    if not found:
+        ps = import_common_and(r"$p = Get-ChildItem -Path 'C:\\Tools\\EricZimmermanTools' -Recurse -Filter 'MFTExplorer.exe' -ErrorAction SilentlyContinue | Select-Object -First 1; if ($p) { Write-Output $p.FullName }")
+        res = run_ps(ps)
+        if res.returncode == 0 and res.stdout.strip():
+            found = res.stdout.strip().splitlines()[0]
+    if found:
+        res2 = run_ps(import_common_and(f"Pin-TaskbarItem -Path '{found}'"))
+        if res2.returncode == 0:
+            logger.success('MFTExplorer pinned (or already pinned).')
+            return
+    logger.warn('MFTExplorer executable not found to pin.')
 
 
 def _apply_wallpaper(logger: Logger):
