@@ -20,9 +20,7 @@ try {
 
 function Install-Zui {
     [CmdletBinding(SupportsShouldProcess)]
-    param(
-        [switch]$WhatIf
-    )
+    param()
 
     Write-Log -Level Info -Message 'Installing Brimdata Zui...'
     if (Get-Command Assert-WindowsAndAdmin -ErrorAction SilentlyContinue) { Assert-WindowsAndAdmin }
@@ -90,7 +88,7 @@ function Install-Zui {
                     if ($p.ExitCode -eq 0) { $installed = $true; break }
                     else { Write-Log -Level Warn -Message "Installer exited with code $($p.ExitCode) using flag $flag" }
                 } catch {
-                    Write-Log -Level Warn -Message "Failed with flag $flag: $($_.Exception.Message)"
+                    Write-Log -Level Warn -Message "Failed with flag ${flag}: $($_.Exception.Message)"
                 }
             }
         }
@@ -117,4 +115,4 @@ function Install-Zui {
     try { if (Test-Path -LiteralPath $installerPath) { Remove-Item -Path $installerPath -Force -ErrorAction SilentlyContinue } } catch { }
 }
 
-Export-ModuleMember -Function Install-Zui
+# Note: Do not call Export-ModuleMember in a .ps1 script; this file is dot-sourced by the orchestrator.

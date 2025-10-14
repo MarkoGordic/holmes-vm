@@ -554,6 +554,7 @@ def build_steps(args, logger: Logger):
     if not args.skip_eztools:
         steps.append(('Install EZ Tools', lambda: run_installer_ps('install-eztools.ps1', 'Install-EZTools', logger, args=(f"-LogDir '{LOG_DIR_DEFAULT}'"), what_if=args.what_if)))
         steps.append(('Pin MFTExplorer', lambda: call_common('Pin-TaskbarItem', r"-Path 'C:\\Tools\\EricZimmermanTools\\net6\\MFTExplorer.exe'", logger)))
+        steps.append(('Pin Timeline Explorer', lambda: _pin_timeline_explorer(logger)))
     else:
         logger.info('Skipping EZ Tools.')
 
@@ -703,6 +704,19 @@ def _pin_db_browser(logger: Logger):
             logger.success('DB Browser pinned (or already pinned).')
             return
     logger.warn('DB Browser executable not found to pin.')
+
+
+def _pin_timeline_explorer(logger: Logger):
+    candidates = [
+        r"C:\\Tools\\EricZimmermanTools\\net6\\TimelineExplorer.exe",
+        r"C:\\Tools\\EricZimmermanTools\\TimelineExplorer.exe",
+    ]
+    for p in candidates:
+        res = run_ps(import_common_and(f"Pin-TaskbarItem -Path '{p}'"))
+        if res.returncode == 0:
+            logger.success('Timeline Explorer pinned (or already pinned).')
+            return
+    logger.warn('Timeline Explorer executable not found to pin.')
 
 
 def _apply_wallpaper(logger: Logger):

@@ -197,6 +197,37 @@ function Install-EZTools {
             $sc.Description = 'MFT Explorer'
             $sc.Save()
         }
+        # Ensure TimelineExplorer shortcut exists even if not under netX
+        $tlx = Get-ChildItem -Path $ezToolsDir -Recurse -Filter 'TimelineExplorer.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($tlx) {
+            try {
+                $shell = New-Object -ComObject WScript.Shell
+                # Shortcut inside EricZimmermanTools desktop folder
+                $lnk1 = Join-Path $desktopShortcutDir 'TimelineExplorer.exe.lnk'
+                $sc1 = $shell.CreateShortcut($lnk1)
+                $sc1.TargetPath = $tlx.FullName
+                $sc1.WorkingDirectory = $tlx.Directory.FullName
+                $sc1.WindowStyle = 1
+                $sc1.Description = 'Timeline Explorer'
+                $sc1.Save()
+
+                # Also create a shortcut on the Desktop root for convenience
+                $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+                $lnk2 = Join-Path $desktopRoot 'Timeline Explorer.lnk'
+                $sc2 = $shell.CreateShortcut($lnk2)
+                $sc2.TargetPath = $tlx.FullName
+                $sc2.WorkingDirectory = $tlx.Directory.FullName
+                $sc2.WindowStyle = 1
+                $sc2.Description = 'Timeline Explorer'
+                $sc2.Save()
+
+                Add-LogLine -Level Success -Message "Timeline Explorer shortcuts created."
+            } catch {
+                Add-LogLine -Level Warn -Message "Failed to create Timeline Explorer shortcuts: $($_.Exception.Message)"
+            }
+        } else {
+            Add-LogLine -Level Warn -Message 'TimelineExplorer.exe not found after EZ Tools install.'
+        }
     } | Out-Null
 
     Invoke-ProgressStep -Name 'Cleanup temporary files' -StepIndex (++$step) -TotalSteps $total -Action {
