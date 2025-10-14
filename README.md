@@ -5,28 +5,22 @@ The Blue Team’s Best Friend — safe, modular, and idempotent setup.
 
 ## What it installs
 
-- Wireshark (Chocolatey)
-- .NET 6 Desktop Runtime (Chocolatey)
-- DnSpyEx (Chocolatey)
-- PeStudio (Chocolatey)
-- Eric Zimmerman's Tools (direct from vendor)
-- RegRipper 4.0 (from GitHub)
  - Chainsaw (from GitHub releases)
  - DB Browser for SQLite (Chocolatey)
+- Brimdata Zui (GUI for Zeek/Suricata logs)
 
 ## Prerequisites
 
 - Windows host
 - Elevated PowerShell session (Run as Administrator)
-- Internet connectivity
-- PowerShell 5.1+ (7+ recommended)
-
-## Quick start
-
-```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
 cd <path-to-repo>
+- `-SkipZui`
 ./setup.ps1
+### Brimdata Zui notes
+
+Zui is a desktop application for exploring Zeek and Suricata logs. The installer fetches the latest Windows build from GitHub releases and installs it silently. After installation, you can launch Zui from Start Menu. If you already ingest Suricata JSON, point Zui to your logs directory to explore them interactively.
+
 ```
 
 Add `-Verbose` for details and `-WhatIf` to simulate actions.

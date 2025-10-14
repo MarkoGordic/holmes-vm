@@ -21,7 +21,8 @@ param(
     [switch]$SkipNetworkCheck,
     [switch]$SkipChainsaw,
     [switch]$SkipVSCode,
-    [switch]$SkipSQLiteBrowser
+    [switch]$SkipSQLiteBrowser,
+    [switch]$SkipZui
 )
 
 Set-StrictMode -Version Latest
@@ -113,6 +114,7 @@ try {
     if ($SkipChainsaw) { $args += '--skip-chainsaw' }
     if ($SkipVSCode) { $args += '--skip-vscode' }
     if ($SkipSQLiteBrowser) { $args += '--skip-sqlitebrowser' }
+    if ($SkipZui) { $args += '--skip-zui' }
 
     $cmd = "$py `"$scriptPath`" $($args -join ' ')"
     Write-Host "Launching Python setup UI..." -ForegroundColor Magenta

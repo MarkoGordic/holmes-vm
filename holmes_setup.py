@@ -524,7 +524,13 @@ def build_steps(args, logger: Logger):
     else:
         logger.info('Skipping PeStudio.')
 
-    # 9. VS Code
+    # 9. WinPrefetchView
+    if not args.skip_winprefetchview:
+        steps.append(('Install WinPrefetchView', lambda: install_choco_pkg('winprefetchview', args.force_reinstall, logger, args.what_if)))
+    else:
+        logger.info('Skipping WinPrefetchView.')
+
+    # 10. VS Code
     if not args.skip_vscode:
         steps.append(('Install VS Code', lambda: install_choco_pkg('vscode', args.force_reinstall, logger, args.what_if)))
         steps.append(('Pin VS Code', lambda: call_common('Pin-TaskbarItem', r"-Path 'C:\\Program Files\\Microsoft VS Code\\Code.exe'", logger)))
@@ -537,6 +543,12 @@ def build_steps(args, logger: Logger):
         steps.append(('Pin DB Browser', lambda: _pin_db_browser(logger)))
     else:
         logger.info('Skipping DB Browser for SQLite.')
+
+    # 10b. Brimdata Zui (Suricata/Zeek GUI)
+    if hasattr(args, 'skip_zui') and not args.skip_zui:
+        steps.append(('Install Brimdata Zui', lambda: run_installer_ps('install-zui.ps1', 'Install-Zui', logger, what_if=args.what_if)))
+    else:
+        logger.info('Skipping Brimdata Zui.')
 
     # 11. EZ Tools
     if not args.skip_eztools:
@@ -590,8 +602,10 @@ def build_registry():
                 { 'id': 'dotnet', 'name': '.NET 6 Desktop Runtime', 'default': True },
                 { 'id': 'dnspyex', 'name': 'DnSpyEx', 'default': True },
                 { 'id': 'pestudio', 'name': 'PeStudio', 'default': True },
+                { 'id': 'winprefetchview', 'name': 'WinPrefetchView', 'description': 'NirSoft Prefetch viewer', 'default': True },
                 { 'id': 'vscode', 'name': 'Visual Studio Code', 'default': True },
                 { 'id': 'sqlitebrowser', 'name': 'DB Browser for SQLite', 'default': True },
+                { 'id': 'zui', 'name': 'Brimdata Zui', 'description': 'GUI for Zeek/Suricata logs', 'default': True },
             ]
         },
         {
@@ -640,12 +654,16 @@ def build_steps_from_selection(selected_ids, args, logger: Logger):
         steps.append(('Install DnSpyEx', lambda: install_choco_pkg('dnspyex', args.force_reinstall, logger, args.what_if)))
     if 'pestudio' in selected_ids:
         steps.append(('Install PeStudio', lambda: install_choco_pkg('pestudio', args.force_reinstall, logger, args.what_if)))
+    if 'winprefetchview' in selected_ids:
+        steps.append(('Install WinPrefetchView', lambda: install_choco_pkg('winprefetchview', args.force_reinstall, logger, args.what_if)))
     if 'vscode' in selected_ids:
         steps.append(('Install VS Code', lambda: install_choco_pkg('vscode', args.force_reinstall, logger, args.what_if)))
         steps.append(('Pin VS Code', lambda: call_common('Pin-TaskbarItem', r"-Path 'C:\\Program Files\\Microsoft VS Code\\Code.exe'", logger)))
     if 'sqlitebrowser' in selected_ids:
         steps.append(('Install DB Browser for SQLite', lambda: install_choco_pkg('sqlitebrowser', args.force_reinstall, logger, args.what_if)))
         steps.append(('Pin DB Browser', lambda: _pin_db_browser(logger)))
+    if 'zui' in selected_ids:
+        steps.append(('Install Brimdata Zui', lambda: run_installer_ps('install-zui.ps1', 'Install-Zui', logger, what_if=args.what_if)))
 
     if 'eztools' in selected_ids:
         steps.append(('Install EZ Tools', lambda: run_installer_ps('install-eztools.ps1', 'Install-EZTools', logger, args=(f"-LogDir '{LOG_DIR_DEFAULT}'"), what_if=args.what_if)))
@@ -758,6 +776,8 @@ def main():
     parser.add_argument('--skip-chainsaw', action='store_true')
     parser.add_argument('--skip-vscode', action='store_true')
     parser.add_argument('--skip-sqlitebrowser', action='store_true')
+    parser.add_argument('--skip-winprefetchview', action='store_true')
+    parser.add_argument('--skip-zui', action='store_true')
 
     args = parser.parse_args()
 

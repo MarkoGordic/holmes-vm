@@ -17,6 +17,7 @@ Context 'Dry-run installers' {
         . "$PSScriptRoot/../util/install-eztools.ps1"
         . "$PSScriptRoot/../util/install-regripper.ps1"
         . "$PSScriptRoot/../util/install-chainsaw.ps1"
+        . "$PSScriptRoot/../util/install-zui.ps1"
     }
     It 'Install-EZTools supports WhatIf' {
         { Install-EZTools -WhatIf } | Should -Not -Throw
@@ -26,5 +27,8 @@ Context 'Dry-run installers' {
     }
     It 'Install-Chainsaw supports WhatIf' {
         { Install-Chainsaw -WhatIf } | Should -Not -Throw
+    }
+    It 'Install-Zui supports WhatIf' {
+        { Install-Zui -WhatIf } | Should -Not -Throw
     }
 }
