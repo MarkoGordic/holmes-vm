@@ -294,6 +294,7 @@ function Set-WindowsAppearance {
     )
     try {
         $personalize = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'
+        
         # Apply dark/light mode for Apps and System
         if ($DarkMode.IsPresent) {
             Set-RegistryDword -Path $personalize -Name 'AppsUseLightTheme' -Value 0
@@ -302,10 +303,16 @@ function Set-WindowsAppearance {
             Set-RegistryDword -Path $personalize -Name 'AppsUseLightTheme' -Value 1
             Set-RegistryDword -Path $personalize -Name 'SystemUsesLightTheme' -Value 1
         }
+        
         # Accent color on Start/Taskbar/Title bars
         Set-RegistryDword -Path $personalize -Name 'ColorPrevalence' -Value ([int]($ShowAccentOnTaskbar.IsPresent))
+        
         # Transparency effects
-        if ($EnableTransparency.IsPresent) { Set-RegistryDword -Path $personalize -Name 'EnableTransparency' -Value 1 } else { Set-RegistryDword -Path $personalize -Name 'EnableTransparency' -Value 0 }
+        if ($EnableTransparency.IsPresent) { 
+            Set-RegistryDword -Path $personalize -Name 'EnableTransparency' -Value 1 
+        } else { 
+            Set-RegistryDword -Path $personalize -Name 'EnableTransparency' -Value 0 
+        }
 
         # Also set machine defaults (best effort) when requested
         if ($ApplyForAllUsers) {
@@ -330,22 +337,49 @@ function Set-WindowsAppearance {
         Set-RegistryDword -Path $dwm -Name 'AccentColor' -Value $abgr
         Set-RegistryDword -Path $dwm -Name 'ColorizationColor' -Value $argb
         Set-RegistryDword -Path $dwm -Name 'ColorPrevalence' -Value 1
+        Set-RegistryDword -Path $dwm -Name 'ColorizationColorBalance' -Value 89
+        Set-RegistryDword -Path $dwm -Name 'ColorizationAfterglowBalance' -Value 10
+        Set-RegistryDword -Path $dwm -Name 'EnableWindowColorization' -Value 1
 
         # Explorer Accent (Start menu etc.)
         $explorerAccent = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Accent'
         Set-RegistryDword -Path $explorerAccent -Name 'AccentColorMenu' -Value $abgr
         Set-RegistryDword -Path $explorerAccent -Name 'StartColorMenu' -Value $abgr
 
+        # Additional registry keys for full dark mode in File Explorer and system dialogs
+        # Set dark mode for Explorer windows
+        $explorerAdvanced = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'
+        if ($DarkMode.IsPresent) {
+            # Ensure File Explorer uses dark mode
+            Set-ItemProperty -Path $explorerAdvanced -Name 'UseSystemAccent' -Value 0 -Force -ErrorAction SilentlyContinue
+        }
+
+        # Set theme in various other locations for consistency
+        $themes = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes'
+        if ($DarkMode.IsPresent) {
+            try {
+                # Store current theme value
+                Set-ItemProperty -Path $themes -Name 'CurrentTheme' -Value '%SystemRoot%\resources\Themes\aero.theme' -Force -ErrorAction SilentlyContinue
+                # Ensure default apps use the dark theme
+                Set-ItemProperty -Path $themes -Name 'AppsUseLightTheme' -Value 0 -Force -ErrorAction SilentlyContinue
+            } catch { }
+        }
+
         Invoke-SettingsChangedBroadcast
+        
+        # Restart explorer to apply all changes
         if ($RestartExplorer) {
             try {
                 if ($PSCmdlet.ShouldProcess('explorer.exe','Restart to apply theme')) {
+                    Write-Log -Level Info -Message "Restarting Explorer to apply dark mode theme..."
                     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-                    Start-Sleep -Milliseconds 500
+                    Start-Sleep -Milliseconds 1000
                     Start-Process explorer.exe
+                    Start-Sleep -Milliseconds 500
                 }
             } catch { Write-Log -Level Warn -Message "Explorer restart failed: $($_.Exception.Message)" }
         }
+        
         Write-Log -Level Success -Message "Windows appearance applied: DarkMode=$($DarkMode.IsPresent), Accent=$AccentHex, Transparency=$($EnableTransparency.IsPresent), ShowAccent=$($ShowAccentOnTaskbar.IsPresent)"
     }
     catch {
@@ -428,9 +462,15 @@ function Set-Wallpaper {
         [ValidateSet('Fill','Fit','Stretch','Tile','Center','Span')]
         [string]$Style = 'Fill'
     )
+    
+    # Resolve to absolute path
+    $ImagePath = [System.IO.Path]::GetFullPath($ImagePath)
+    
     if (-not (Test-Path -LiteralPath $ImagePath)) {
         throw "Wallpaper image not found: $ImagePath"
     }
+
+    Write-Log -Level Info -Message "Setting wallpaper: $ImagePath (Style: $Style)"
 
     $regPath = 'HKCU:\\Control Panel\\Desktop'
     $styleMap = @{
@@ -444,27 +484,93 @@ function Set-Wallpaper {
     $values = $styleMap[$Style]
 
     if ($PSCmdlet.ShouldProcess($ImagePath, "Set desktop wallpaper ($Style)")) {
-        New-Item -Path $regPath -Force -ErrorAction SilentlyContinue | Out-Null
-        Set-ItemProperty -Path $regPath -Name Wallpaper -Value $ImagePath
-        Set-ItemProperty -Path $regPath -Name WallpaperStyle -Value $values.WallpaperStyle
-        Set-ItemProperty -Path $regPath -Name TileWallpaper -Value $values.TileWallpaper
+        try {
+            # Ensure registry path exists
+            New-Item -Path $regPath -Force -ErrorAction SilentlyContinue | Out-Null
+            
+            # Set wallpaper properties in registry
+            Set-ItemProperty -Path $regPath -Name Wallpaper -Value $ImagePath -Force
+            Set-ItemProperty -Path $regPath -Name WallpaperStyle -Value $values.WallpaperStyle -Force
+            Set-ItemProperty -Path $regPath -Name TileWallpaper -Value $values.TileWallpaper -Force
+            
+            # Verify registry was updated
+            $verifyWallpaper = Get-ItemProperty -Path $regPath -Name Wallpaper -ErrorAction SilentlyContinue
+            if ($verifyWallpaper.Wallpaper -ne $ImagePath) {
+                Write-Log -Level Warn -Message "Registry update may have failed. Expected: $ImagePath, Got: $($verifyWallpaper.Wallpaper)"
+            }
 
-        $sig = @'
+            # Use native Windows API to set wallpaper
+            $sig = @'
+using System;
 using System.Runtime.InteropServices;
-public class NativeMethods {
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+public class WallpaperHelper {
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+    
+    public const int SPI_SETDESKWALLPAPER = 0x0014;
+    public const int SPIF_UPDATEINIFILE = 0x01;
+    public const int SPIF_SENDCHANGE = 0x02;
+    
+    public static bool SetWallpaper(string path) {
+        int result = SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+        return result != 0;
+    }
 }
 '@
-        # More robust type presence check
-        $typeLoaded = $false
-        try { $null = [NativeMethods]; $typeLoaded = $true } catch { $typeLoaded = $false }
-        if (-not $typeLoaded) { Add-Type -TypeDefinition $sig -ErrorAction Stop }
-        $SPI_SETDESKWALLPAPER = 20
-        $SPIF_UPDATEINIFILE = 0x01
-        $SPIF_SENDWININICHANGE = 0x02
-        [void]([NativeMethods]::SystemParametersInfo($SPI_SETDESKWALLPAPER, 0, $ImagePath, $SPIF_UPDATEINIFILE -bor $SPIF_SENDWININICHANGE))
-        Write-Log -Level Success -Message "Wallpaper applied: $ImagePath ($Style)"
+            # More robust type presence check
+            $typeLoaded = $false
+            try { 
+                $null = [WallpaperHelper]
+                $typeLoaded = $true 
+            } catch { 
+                $typeLoaded = $false 
+            }
+            
+            if (-not $typeLoaded) { 
+                try {
+                    Add-Type -TypeDefinition $sig -ErrorAction Stop 
+                } catch {
+                    Write-Log -Level Warn -Message "Failed to load WallpaperHelper type: $($_.Exception.Message)"
+                    throw
+                }
+            }
+            
+            # Call the native method
+            $success = [WallpaperHelper]::SetWallpaper($ImagePath)
+            
+            if ($success) {
+                Write-Log -Level Success -Message "Wallpaper applied successfully: $ImagePath ($Style)"
+                
+                # Also refresh the desktop to ensure changes are visible
+                try {
+                    # Broadcast a WM_SETTINGCHANGE message to all windows
+                    $HWND_BROADCAST = [IntPtr]0xffff
+                    $WM_SETTINGCHANGE = 0x001A
+                    $sig2 = @'
+using System;
+using System.Runtime.InteropServices;
+public class DesktopRefresh {
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr result);
+}
+'@
+                    $typeLoaded2 = $false
+                    try { $null = [DesktopRefresh]; $typeLoaded2 = $true } catch { $typeLoaded2 = $false }
+                    if (-not $typeLoaded2) { Add-Type -TypeDefinition $sig2 -ErrorAction SilentlyContinue }
+                    
+                    $result = [UIntPtr]::Zero
+                    [void][DesktopRefresh]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, "Environment", 2, 5000, [ref]$result)
+                } catch {
+                    # Ignore desktop refresh errors - wallpaper is already set
+                }
+            } else {
+                Write-Log -Level Warn -Message "SystemParametersInfo returned false - wallpaper may not have been applied"
+                throw "Failed to apply wallpaper via Windows API"
+            }
+        } catch {
+            Write-Log -Level Error -Message "Failed to set wallpaper: $($_.Exception.Message)"
+            throw
+        }
     }
 }
 

@@ -1,0 +1,189 @@
+{
+  "categories": [
+    {
+      "id": "core",
+      "name": "Core",
+      "description": "Essential checks and helpers for a successful setup.",
+      "items": [
+        {
+          "id": "network",
+          "name": "Network connectivity check",
+          "description": "Verify internet access before downloads",
+          "default": true,
+          "installer_type": "function",
+          "installer": "network_check"
+        },
+        {
+          "id": "choco",
+          "name": "Chocolatey",
+          "description": "Windows package manager",
+          "default": true,
+          "installer_type": "function",
+          "installer": "ensure_choco"
+        },
+        {
+          "id": "pip",
+          "name": "Upgrade pip & tools",
+          "description": "pip, setuptools, wheel, pipx, virtualenv",
+          "default": true,
+          "installer_type": "function",
+          "installer": "upgrade_pip"
+        }
+      ]
+    },
+    {
+      "id": "applications",
+      "name": "Applications",
+      "description": "Analysis tools and utilities.",
+      "items": [
+        {
+          "id": "wireshark",
+          "name": "Wireshark",
+          "description": "Network protocol analyzer",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "wireshark"
+        },
+        {
+          "id": "dotnet",
+          "name": ".NET 6 Desktop Runtime",
+          "description": "Required for many Windows forensic tools",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-6.0-desktopruntime"
+        },
+        {
+          "id": "dnspyex",
+          "name": "DnSpyEx",
+          "description": ".NET debugger and assembly editor",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dnspyex"
+        },
+        {
+          "id": "pestudio",
+          "name": "PeStudio",
+          "description": "Malware initial assessment tool",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "pestudio"
+        },
+        {
+          "id": "winprefetchview",
+          "name": "WinPrefetchView",
+          "description": "NirSoft Prefetch viewer",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "winprefetchview"
+        },
+        {
+          "id": "vscode",
+          "name": "Visual Studio Code",
+          "description": "Modern code editor",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "vscode",
+          "post_install": [
+            {
+              "type": "pin_taskbar",
+              "path": "C:\\\\Program Files\\\\Microsoft VS Code\\\\Code.exe"
+            }
+          ]
+        },
+        {
+          "id": "sqlitebrowser",
+          "name": "DB Browser for SQLite",
+          "description": "SQLite database browser",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "sqlitebrowser",
+          "post_install": [
+            {
+              "type": "pin_taskbar_multi",
+              "paths": [
+                "C:\\\\Program Files\\\\DB Browser for SQLite\\\\DB Browser for SQLite.exe",
+                "C:\\\\Program Files (x86)\\\\DB Browser for SQLite\\\\DB Browser for SQLite.exe"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "zui",
+          "name": "Brimdata Zui",
+          "description": "GUI for Zeek/Suricata logs",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-zui.ps1",
+          "function_name": "Install-Zui"
+        }
+      ]
+    },
+    {
+      "id": "forensics",
+      "name": "Forensics Bundles",
+      "description": "Specialized forensic tooling.",
+      "items": [
+        {
+          "id": "eztools",
+          "name": "Eric Zimmerman Tools (EZ Tools)",
+          "description": "Comprehensive forensics toolkit",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-eztools.ps1",
+          "function_name": "Install-EZTools",
+          "post_install": [
+            {
+              "type": "pin_taskbar",
+              "path": "C:\\\\Tools\\\\EricZimmermanTools\\\\net6\\\\MFTExplorer.exe"
+            },
+            {
+              "type": "pin_taskbar",
+              "path": "C:\\\\Tools\\\\EricZimmermanTools\\\\net6\\\\TimelineExplorer.exe"
+            }
+          ]
+        },
+        {
+          "id": "regripper",
+          "name": "RegRipper",
+          "description": "Windows Registry forensics tool",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-regripper.ps1",
+          "function_name": "Install-RegRipper"
+        },
+        {
+          "id": "chainsaw",
+          "name": "Chainsaw",
+          "description": "Rapidly search and hunt through Windows event logs",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-chainsaw.ps1",
+          "function_name": "Install-Chainsaw"
+        }
+      ]
+    },
+    {
+      "id": "personalization",
+      "name": "Personalization",
+      "description": "Make the VM look and feel great.",
+      "items": [
+        {
+          "id": "wallpaper",
+          "name": "Holmes wallpaper",
+          "description": "Custom wallpaper for forensics VM",
+          "default": true,
+          "installer_type": "function",
+          "installer": "install_wallpaper"
+        },
+        {
+          "id": "appearance",
+          "name": "Windows appearance tweaks",
+          "description": "Dark mode and visual customizations",
+          "default": true,
+          "installer_type": "function",
+          "installer": "set_appearance"
+        }
+      ]
+    }
+  ]
+}

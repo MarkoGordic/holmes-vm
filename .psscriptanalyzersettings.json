@@ -1,0 +1,14 @@
+{
+  "IncludeRules": [
+    "PSUseConsistentIndentation",
+    "PSAvoidUsingWriteHost",
+    "PSAvoidUsingCmdletAliases",
+    "PSUseApprovedVerbs",
+    "PSAvoidUsingWMICmdlet"
+  ],
+  "Rules": {
+    "PSAvoidUsingWriteHost": {
+      "Enable": false
+    }
+  }
+}
