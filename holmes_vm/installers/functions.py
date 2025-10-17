@@ -135,17 +135,18 @@ class WallpaperInstaller(BaseInstaller):
 
 @register_installer('set_appearance')
 class AppearanceInstaller(BaseInstaller):
-    """Apply Windows appearance settings"""
+    """Apply Windows appearance settings with Sherlock Holmes dark theme"""
     
     def get_name(self) -> str:
-        return "Apply Windows appearance"
+        return "Apply Windows appearance (Dark Mode)"
     
     def install(self) -> bool:
-        """Apply Windows appearance settings"""
-        self.logger.info('Applying Windows appearance...')
+        """Apply Windows appearance settings with dark theme"""
+        self.logger.info('Applying Sherlock Holmes dark theme...')
         
+        # Victorian brown accent color: #A0826D
         code = import_common_module_and(
-            "Set-WindowsAppearance -DarkMode -AccentHex '#0078D7' -ShowAccentOnTaskbar -EnableTransparency -ApplyForAllUsers -RestartExplorer",
+            "Set-WindowsAppearance -DarkMode -AccentHex '#A0826D' -ShowAccentOnTaskbar -EnableTransparency -ApplyForAllUsers -RestartExplorer",
             self.config.module_path
         )
         res = run_powershell(code)
@@ -154,7 +155,7 @@ class AppearanceInstaller(BaseInstaller):
             self.logger.warn(f'Appearance setup returned {res.returncode}: {res.stderr.strip()}')
             return False
         else:
-            self.logger.success('Windows appearance applied.')
+            self.logger.success('Dark theme with Victorian brown accent applied.')
             return True
 
 

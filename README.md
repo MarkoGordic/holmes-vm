@@ -1,16 +1,56 @@
-# Holmes VM 🌌
+# Holmes VM 🔍
 The Blue Team's Best Friend — safe, modular, and idempotent forensics VM setup.
+
+**Now featuring an authentic Victorian London mystery theme!**
 
 ---
 
 ## Features
 
 ✨ **Modular Architecture** - Easy to extend and maintain  
-🎨 **Modern UI** - Clean, dark-mode interface with real-time progress  
+🎨 **Victorian Dark Theme** - London fog gray with warm Victorian browns  
+🖥️ **Dual UI Modes** - Modern GUI or elegant Rich console interface  
 ⚙️ **Configurable** - JSON-based tool definitions, no code changes needed  
 🔧 **Comprehensive Tooling** - All essential forensics tools in one place  
 🛡️ **Safe & Idempotent** - Can be run multiple times safely  
 📦 **Easy to Upgrade** - Add new tools by editing configuration  
+📊 **Enhanced Progress Tracking** - Real-time updates with ETA and smooth animations  
+🌙 **System Dark Mode** - Automatically sets Windows to dark theme with Victorian accent
+
+## UI Showcase
+
+### 🎭 Sherlock Holmes Victorian Mystery Theme
+
+The installer features a **sophisticated dark theme** inspired by Victorian London:
+
+- **Deep charcoal background** - Like London fog at night
+- **Victorian brown accents** - Warm, professional detective aesthetic  
+- **Smooth animations** - Buttery progress bars and transitions
+- **Verbose logging** - Toggle detailed logs on/off
+- **Mystery aesthetics** - 🔍 Magnifying glass icons and Holmes quotes
+- **Grayscale elegance** - Professional forensics workspace
+- **System-wide dark mode** - Applies dark theme to Windows with Victorian brown accent
+
+### GUI Mode (Tkinter)
+- **1000x700 window** - Spacious and organized
+- **Animated progress bar** - Smooth transitions with dynamic speed
+- **Log filtering** - Toggle Info/Warnings/Errors/Verbose
+- **Enhanced component selection** - Beautiful dialog with categories
+- **Time tracking** - Elapsed time and ETA
+- **Hover effects** - Interactive buttons
+
+### Rich Console Mode (New!)
+- **Beautiful terminal output** - Powered by Rich library
+- **ASCII art banner** - Sherlock Holmes themed
+- **Animated spinners** - Live progress indicators
+- **Colored panels** - Organized information display
+- **Progress tracking** - Time estimates and completion status
+- **Professional tables** - Summary statistics
+
+**Try the demo:**
+```bash
+python demo_ui.py --full
+```  
 
 ## What it installs
 
@@ -34,11 +74,6 @@ The Blue Team's Best Friend — safe, modular, and idempotent forensics VM setup
 - **RegRipper** - Windows Registry forensics
 - **Chainsaw** - Windows event log hunter
 
-### Personalization
-- Custom Holmes wallpaper
-- Full dark mode theme for Windows
-- Taskbar shortcuts for common tools
-
 ## Quick Start
 
 ### Prerequisites
@@ -46,6 +81,9 @@ The Blue Team's Best Friend — safe, modular, and idempotent forensics VM setup
 - Windows 10/11
 - Administrator privileges
 - Internet connection
+
+**Optional:**
+- Rich library for enhanced console UI (auto-installed by bootstrap)
 
 **That's it!** Python and Chocolatey will be installed automatically by the start scripts.
 
@@ -65,43 +103,7 @@ The Blue Team's Best Friend — safe, modular, and idempotent forensics VM setup
 3. **Select tools** from the GUI
 4. **Done!** ✨
 
-The script automatically:
-1. ✅ Checks Administrator privileges
-2. ✅ Installs Chocolatey (if missing)
-3. ✅ Installs Python 3.14 (if missing)
-4. ✅ Upgrades pip and installs dependencies
-5. ✅ Runs the GUI for tool selection
-6. ✅ Installs all selected tools
-
-**Troubleshooting:**
-- If `start.bat` closes immediately without output: Use `start-debug.bat` instead
-- If you see errors: The window will stay open so you can read them
-- If nothing happens: Make sure you're running as Administrator
-
 **No manual steps required!** Everything is automatic except tool selection.
-
-#### Method 2: Manual Installation (Advanced)
-
-If you prefer to install dependencies manually or want more control:
-
-1. **Clone or download this repository:**
-   ```bash
-   git clone https://github.com/MarkoGordic/holmes-vm.git
-   cd holmes-vm
-   ```
-
-2. **Install Python 3.7+ manually** (if not using start.bat)
-
-3. **Run bootstrap:**
-   ```bash
-   python bootstrap.py
-   ```
-
-4. **Run the installer:**
-   ```bash
-   python setup.py              # GUI mode
-   python setup.py --no-gui     # Console mode
-   ```
 
 ### Command Line Options
 
@@ -109,10 +111,36 @@ If you prefer to install dependencies manually or want more control:
 python setup.py [OPTIONS]
 
 Options:
-  --no-gui              Run in console mode without GUI
+  --no-gui              Run in enhanced Rich console mode (no GUI window)
   --what-if             Simulate installation without making changes
   --force-reinstall     Force reinstallation of all packages
   --log-dir PATH        Custom directory for log files
+```
+
+### UI Modes
+
+**GUI Mode (Default):**
+```bash
+python setup.py
+```
+- Modern Tkinter window with Sherlock Holmes theme
+- Interactive component selection
+- Smooth animations and progress tracking
+- Log filtering (Info/Warnings/Errors/Verbose)
+
+**Rich Console Mode:**
+```bash
+python setup.py --no-gui
+```
+- Beautiful terminal output with Rich library
+- ASCII art banner and animations
+- Colored panels and progress bars
+- Professional logging
+
+**Demo the UI:**
+```bash
+python demo_ui.py --full      # Full demo with simulated installation
+python demo_ui.py --colors    # Show color palette
 ```
 
 ## Project Structure
@@ -124,11 +152,12 @@ holmes-vm/
 ├── holmes_vm/
 │   ├── core/
 │   │   ├── config.py          # Configuration management
-│   │   ├── logger.py          # Logging utilities
+│   │   ├── logger.py          # Enhanced logging (GUI/Rich/console)
 │   │   └── orchestrator.py   # Installation orchestration
 │   ├── ui/
-│   │   ├── colors.py          # UI color scheme
-│   │   └── window.py          # Main UI window
+│   │   ├── colors.py          # Sherlock Holmes theme colors
+│   │   ├── window.py          # Enhanced GUI with animations
+│   │   └── rich_console.py   # Rich console UI (NEW!)
 │   ├── installers/
 │   │   ├── base.py            # Base installer classes
 │   │   ├── chocolatey.py      # Chocolatey package installer
@@ -145,6 +174,10 @@ holmes-vm/
 │   └── install-zui.ps1        # Zui installer
 ├── assets/
 │   └── wallpaper.jpg          # Custom wallpaper
+├── requirements.txt            # Python dependencies (NEW!)
+├── demo_ui.py                  # UI demonstration script (NEW!)
+├── UI_UPGRADE_SUMMARY.md       # Detailed UI documentation (NEW!)
+├── bootstrap.py                # Enhanced bootstrap with theme
 └── setup.py                    # Main entry point
 ```
 
@@ -195,106 +228,3 @@ Adding a new tool is easy! Just edit `config/tools.json`:
   ]
 }
 ```
-
-## PowerShell Modules
-
-### Holmes.Common.psm1
-
-Shared PowerShell helpers for:
-- Logging with colors (`Write-Log`)
-- Chocolatey management (`Ensure-Chocolatey`, `Install-ChocoPackage`)
-- Downloads with retry (`Invoke-SafeDownload`)
-- PATH management (`Add-PathIfMissing`)
-- Registry operations (`Set-RegistryDword`)
-- **Full dark mode theme** (`Set-WindowsAppearance`) - IMPROVED!
-- **Improved wallpaper setting** (`Set-Wallpaper`) - FIXED!
-- Taskbar pinning (`Pin-TaskbarItem`)
-- Network checks (`Test-UrlReachable`)
-
-## Recent Improvements
-
-✅ **Fixed Dark Mode** - Now properly applies full dark mode to all Windows components including File Explorer  
-✅ **Fixed Wallpaper** - Wallpaper now correctly sets and applies with better error handling  
-✅ **Fixed Zui Installation** - Improved detection and installation of Brimdata Zui  
-✅ **Modular Architecture** - Complete refactoring into a clean, modular Python package  
-✅ **Configuration-Driven** - All tools defined in JSON, easy to modify  
-✅ **Installer Registry** - Plugin-based system for easy extensibility  
-✅ **Better Logging** - Improved logging with file and UI integration  
-✅ **Cleaner Code** - Separated concerns: UI, installers, config, logging, orchestration  
-
-## Safety and Idempotency
-
-- Checks Windows and Administrator privileges before starting
-- All installations are idempotent (safe to run multiple times)
-- Chocolatey packages check for existing installations
-- Downloads include retry logic with TLS 1.2 support
-- PATH updates are additive and non-duplicating
-- `--what-if` mode for testing without changes
-
-## Logging
-
-All installation logs are saved to:
-```
-C:\ProgramData\HolmesVM\Logs\HolmesVM-setup-YYYYMMDD-HHMMSS.log
-```
-
-You can specify a custom log directory:
-```bash
-python setup.py --log-dir "C:\Custom\Log\Path"
-```
-
-## Troubleshooting
-
-### "Tkinter not available"
-Install Python with Tk support or use `--no-gui` flag.
-
-### "Run as Administrator"
-Right-click Command Prompt or PowerShell and select "Run as Administrator".
-
-### Zui not installing
-Check the log file for details. You may need to download manually from:
-https://github.com/brimdata/zui/releases
-
-### Wallpaper not applying
-Ensure the wallpaper file exists in `assets/wallpaper.jpg` and you have write permissions to `C:\Tools\Wallpapers`.
-
-### Dark mode not complete
-Run Explorer restart manually or log out and back in to ensure all theme changes apply.
-
-## Contributing
-
-Contributions, tool suggestions, and feedback are welcome! 🚀
-
-### How to Contribute
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly on a clean Windows VM
-5. Submit a pull request
-
-### Adding New Installers
-
-1. Create a new installer class in `holmes_vm/installers/`
-2. Register it using the `@register_installer` decorator
-3. Add the tool definition to `config/tools.json`
-4. Test the installation
-
-## License
-
-MIT License - See LICENSE file for details.
-
-## Credits
-
-Created by Marko Gordic and the Holmes VM community.
-
-Special thanks to:
-- Eric Zimmerman (EZ Tools)
-- NirSoft tools
-- Wireshark team
-- Brimdata (Zui)
-- All open-source contributors
-
----
-
-**For questions or issues, please open a GitHub issue.**

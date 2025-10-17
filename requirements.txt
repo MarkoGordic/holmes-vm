@@ -1,0 +1,13 @@
+# Holmes VM Requirements
+# Beautiful terminal UI
+rich>=13.7.0
+
+# Modern GUI (CustomTkinter - much better than plain tkinter)
+customtkinter>=5.2.0
+
+# GUI support (tkinter is built-in on most platforms)
+# If tkinter is missing, run: sudo apt-get install python3-tk
+
+# Core dependencies
+setuptools>=65.0.0
+wheel>=0.38.0

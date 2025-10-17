@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Logging utilities for Holmes VM setup
+Enhanced with Rich console support for beautiful terminal output
 """
 
 import os
@@ -11,14 +12,16 @@ from typing import Optional, Any
 
 
 class Logger:
-    """Thread-safe logger with UI integration support"""
+    """Thread-safe logger with UI integration support (GUI and Rich console)"""
     
-    def __init__(self, log_file: str, ui: Optional[Any] = None):
+    def __init__(self, log_file: str, ui: Optional[Any] = None, rich_console: Optional[Any] = None):
         self.log_file = log_file
-        self.ui = ui
+        self.ui = ui  # GUI UI object
+        self.rich_console = rich_console  # Rich console UI object
         os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         self._lock = threading.Lock()
         self.current_step = None  # Optional context injected by runner
+        self.verbose = True  # Control verbosity
 
     def _write_file(self, line: str):
         """Write log line to file"""
@@ -29,36 +32,63 @@ class Logger:
             except Exception:
                 pass
 
-    def log(self, level: str, msg: str):
+    def log(self, level: str, msg: str, verbose: bool = False):
         """Log a message with specified level"""
         ts = datetime.now().strftime('%H:%M:%S.%f')[:-3]
         ctx = f"[{self.current_step}]" if self.current_step else ""
         line = f"[{ts}][{level.upper()}]{ctx} {msg}\n"
         
+        # Always write to file
         self._write_file(line)
         
+        # Send to GUI if available
         if self.ui:
             self.ui.enqueue(('log', level.lower(), line))
         
-        # Also echo to console
-        print(line, end='')
+        # Send to Rich console if available and not in GUI mode
+        if self.rich_console and not self.ui:
+            if verbose and not self.verbose:
+                return  # Skip verbose messages if verbosity is off
+            
+            if verbose:
+                self.rich_console.log_verbose(msg)
+            elif level.upper() == 'INFO':
+                self.rich_console.log_info(msg)
+            elif level.upper() == 'SUCCESS':
+                self.rich_console.log_success(msg)
+            elif level.upper() == 'WARN':
+                self.rich_console.log_warning(msg)
+            elif level.upper() == 'ERROR':
+                self.rich_console.log_error(msg)
+            else:
+                self.rich_console.log_info(msg)
+        elif not self.ui and not self.rich_console:
+            # Fallback to plain console
+            print(line, end='')
 
-    def info(self, msg: str):
+    def info(self, msg: str, verbose: bool = False):
         """Log info message"""
-        self.log('INFO', msg)
+        self.log('INFO', msg, verbose)
 
-    def warn(self, msg: str):
+    def warn(self, msg: str, verbose: bool = False):
         """Log warning message"""
-        self.log('WARN', msg)
+        self.log('WARN', msg, verbose)
 
-    def error(self, msg: str):
+    def error(self, msg: str, verbose: bool = False):
         """Log error message"""
-        self.log('ERROR', msg)
+        self.log('ERROR', msg, verbose)
 
-    def success(self, msg: str):
+    def success(self, msg: str, verbose: bool = False):
         """Log success message"""
-        self.log('SUCCESS', msg)
-
+        self.log('SUCCESS', msg, verbose)
+    
+    def verbose(self, msg: str):
+        """Log verbose/debug message"""
+        self.log('VERBOSE', msg, verbose=True)
+    
+    def set_verbose(self, enabled: bool):
+        """Enable or disable verbose logging"""
+        self.verbose = enabled
 
 def get_default_log_dir() -> str:
     """Get default log directory path"""
@@ -69,7 +99,7 @@ def get_default_log_dir() -> str:
     )
 
 
-def create_logger(log_dir: Optional[str] = None, ui: Optional[Any] = None) -> Logger:
+def create_logger(log_dir: Optional[str] = None, ui: Optional[Any] = None, rich_console: Optional[Any] = None) -> Logger:
     """Create a new logger instance"""
     if log_dir is None:
         log_dir = get_default_log_dir()
@@ -80,4 +110,5 @@ def create_logger(log_dir: Optional[str] = None, ui: Optional[Any] = None) -> Lo
         f"HolmesVM-setup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     )
     
-    return Logger(log_file, ui)
+    return Logger(log_file, ui, rich_console)
+

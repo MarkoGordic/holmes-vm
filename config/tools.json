@@ -53,6 +53,14 @@
           "package_name": "dotnet-6.0-desktopruntime"
         },
         {
+          "id": "dotnet9",
+          "name": ".NET 9 Desktop Runtime",
+          "description": "Required for newer EZ Tools (net9)",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-9.0-desktopruntime"
+        },
+        {
           "id": "dnspyex",
           "name": "DnSpyEx",
           "description": ".NET debugger and assembly editor",
@@ -86,7 +94,7 @@
           "post_install": [
             {
               "type": "pin_taskbar",
-              "path": "C:\\\\Program Files\\\\Microsoft VS Code\\\\Code.exe"
+              "path": "C:\\Program Files\\Microsoft VS Code\\Code.exe"
             }
           ]
         },
@@ -101,8 +109,8 @@
             {
               "type": "pin_taskbar_multi",
               "paths": [
-                "C:\\\\Program Files\\\\DB Browser for SQLite\\\\DB Browser for SQLite.exe",
-                "C:\\\\Program Files (x86)\\\\DB Browser for SQLite\\\\DB Browser for SQLite.exe"
+                "C:\\Program Files\\DB Browser for SQLite\\DB Browser for SQLite.exe",
+                "C:\\Program Files (x86)\\DB Browser for SQLite\\DB Browser for SQLite.exe"
               ]
             }
           ]
@@ -133,12 +141,18 @@
           "function_name": "Install-EZTools",
           "post_install": [
             {
-              "type": "pin_taskbar",
-              "path": "C:\\\\Tools\\\\EricZimmermanTools\\\\net6\\\\MFTExplorer.exe"
+              "type": "pin_taskbar_multi",
+              "paths": [
+                "C:\\Tools\\EricZimmermanTools\\net9\\MFTExplorer.exe",
+                "C:\\Tools\\EricZimmermanTools\\net6\\MFTExplorer.exe"
+              ]
             },
             {
-              "type": "pin_taskbar",
-              "path": "C:\\\\Tools\\\\EricZimmermanTools\\\\net6\\\\TimelineExplorer.exe"
+              "type": "pin_taskbar_multi",
+              "paths": [
+                "C:\\Tools\\EricZimmermanTools\\net9\\TimelineExplorer.exe",
+                "C:\\Tools\\EricZimmermanTools\\net6\\TimelineExplorer.exe"
+              ]
             }
           ]
         },

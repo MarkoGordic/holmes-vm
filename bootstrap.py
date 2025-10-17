@@ -4,6 +4,7 @@
 Holmes VM Bootstrap Script
 This script sets up Python environment and dependencies for Holmes VM.
 Run this first on a fresh Windows installation.
+Enhanced with Sherlock Holmes theme.
 """
 
 import os
@@ -15,6 +16,31 @@ import ctypes
 from pathlib import Path
 
 
+# ANSI color codes for terminal styling
+class Colors:
+    BROWN = '\033[38;5;138m'     # Victorian brown
+    GOLD = '\033[38;5;179m'      # Golden brown
+    GREEN = '\033[38;5;108m'     # Muted green
+    RED = '\033[38;5;167m'       # Muted red
+    GRAY = '\033[38;5;248m'      # Warm gray
+    BOLD = '\033[1m'
+    DIM = '\033[2m'
+    RESET = '\033[0m'
+
+
+# Sherlock Holmes banner
+BANNER = f"""{Colors.BROWN}{Colors.BOLD}
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║   🔍 SHERLOCK HOLMES • DIGITAL FORENSICS VM BOOTSTRAP                   ║
+║                                                                          ║
+║      "It is a capital mistake to theorize before one has data."         ║
+║                                          - A Scandal in Bohemia          ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+{Colors.RESET}
+"""
+
 def is_admin():
     """Check if running with administrator privileges"""
     try:
@@ -25,29 +51,34 @@ def is_admin():
 
 def print_header(text):
     """Print a formatted header"""
-    print("\n" + "=" * 70)
+    print(f"\n{Colors.BROWN}{Colors.BOLD}{'═' * 76}")
     print(f"  {text}")
-    print("=" * 70 + "\n")
+    print(f"{'═' * 76}{Colors.RESET}\n")
 
 
 def print_step(step_num, total, text):
     """Print a step indicator"""
-    print(f"[{step_num}/{total}] {text}...")
+    print(f"{Colors.GRAY}{Colors.BOLD}[{step_num}/{total}]{Colors.RESET} {Colors.BROWN}🔍 {text}...{Colors.RESET}")
 
 
 def print_success(text):
     """Print success message"""
-    print(f"✓ {text}")
+    print(f"  {Colors.GREEN}✓ {text}{Colors.RESET}")
 
 
 def print_error(text):
     """Print error message"""
-    print(f"✗ {text}")
+    print(f"  {Colors.RED}✗ {text}{Colors.RESET}")
 
 
 def print_info(text):
     """Print info message"""
-    print(f"  → {text}")
+    print(f"  {Colors.GRAY}→ {text}{Colors.RESET}")
+
+
+def print_warning(text):
+    """Print warning message"""
+    print(f"  {Colors.GOLD}⚠ {text}{Colors.RESET}")
 
 
 def check_python_version():
@@ -102,10 +133,12 @@ def install_dependencies():
     """Install required Python packages"""
     print_step(4, 5, "Installing dependencies")
     
-    # Core dependencies (minimal, since we mainly use stdlib and PowerShell)
+    # Core dependencies including Rich for beautiful UI and CustomTkinter for modern GUI
     dependencies = [
         'setuptools',
         'wheel',
+        'rich>=13.7.0',        # Beautiful terminal UI
+        'customtkinter>=5.2.0',  # Modern tkinter wrapper with better widgets
     ]
     
     print_info(f"Installing: {', '.join(dependencies)}")
@@ -117,7 +150,7 @@ def install_dependencies():
             capture_output=True,
             text=True
         )
-        print_success("Dependencies installed")
+        print_success("Dependencies installed (Rich + CustomTkinter for modern UI)")
         return True
     except subprocess.CalledProcessError as e:
         print_error(f"Failed to install dependencies: {e}")
@@ -155,11 +188,11 @@ def verify_installation():
 def check_admin_rights():
     """Check and warn about admin rights"""
     if not is_admin():
-        print("\n" + "!" * 70)
-        print("  WARNING: Not running as Administrator")
+        print(f"\n{Colors.GOLD}{Colors.BOLD}{'!' * 76}")
+        print("  ⚠  WARNING: Not running as Administrator")
         print("  Holmes VM requires Administrator privileges to install tools")
         print("  Please run this script (and setup.py) as Administrator")
-        print("!" * 70 + "\n")
+        print(f"{'!' * 76}{Colors.RESET}\n")
         return False
     else:
         print_success("Running with Administrator privileges")
@@ -168,9 +201,12 @@ def check_admin_rights():
 
 def main():
     """Main bootstrap function"""
+    # Print banner
+    print(BANNER)
+    
     print_header("Holmes VM Bootstrap Script")
-    print("This script prepares your system to run Holmes VM setup.")
-    print("Make sure you're running this as Administrator!\n")
+    print(f"{Colors.DIM}This script prepares your system to run Holmes VM setup.")
+    print(f"Make sure you're running this as Administrator!{Colors.RESET}\n")
     
     # Check admin rights
     is_admin_user = check_admin_rights()
@@ -182,7 +218,7 @@ def main():
     if check_python_version():
         steps_passed += 1
     else:
-        print("\n❌ Python version check failed. Please upgrade Python.")
+        print(f"\n{Colors.RED}{Colors.BOLD}❌ Python version check failed. Please upgrade Python.{Colors.RESET}")
         sys.exit(1)
     
     if check_tkinter():
@@ -194,49 +230,49 @@ def main():
     if upgrade_pip():
         steps_passed += 1
     else:
-        print("\n⚠️  pip upgrade failed, but continuing...")
+        print_warning("pip upgrade failed, but continuing...")
         steps_passed += 1  # Not critical
     
     if install_dependencies():
         steps_passed += 1
     else:
-        print("\n❌ Dependency installation failed.")
+        print(f"\n{Colors.RED}{Colors.BOLD}❌ Dependency installation failed.{Colors.RESET}")
         sys.exit(1)
     
     if verify_installation():
         steps_passed += 1
     else:
-        print("\n❌ Installation verification failed.")
+        print(f"\n{Colors.RED}{Colors.BOLD}❌ Installation verification failed.{Colors.RESET}")
         sys.exit(1)
     
     # Final summary
     print_header("Bootstrap Complete!")
-    print(f"✓ All {steps_passed}/{total_steps} steps completed successfully!\n")
+    print(f"{Colors.GREEN}{Colors.BOLD}✓ All {steps_passed}/{total_steps} steps completed successfully!{Colors.RESET}\n")
     
     if is_admin_user:
-        print("You can now run Holmes VM setup:")
-        print("  python setup.py")
+        print(f"{Colors.BROWN}You can now run Holmes VM setup:{Colors.RESET}")
+        print(f"  {Colors.BOLD}python setup.py{Colors.RESET}")
     else:
-        print("⚠️  IMPORTANT: Run setup as Administrator:")
+        print(f"{Colors.GOLD}⚠  IMPORTANT: Run setup as Administrator:{Colors.RESET}")
         print("  1. Open Command Prompt or PowerShell as Administrator")
         print("  2. Navigate to this directory")
-        print("  3. Run: python setup.py")
+        print(f"  3. Run: {Colors.BOLD}python setup.py{Colors.RESET}")
     
-    print("\nOther options:")
-    print("  python setup.py --no-gui       # Console mode")
-    print("  python setup.py --what-if      # Test mode")
-    print("  python setup.py --help         # Show all options")
+    print(f"\n{Colors.DIM}Other options:{Colors.RESET}")
+    print(f"  {Colors.BROWN}python setup.py --no-gui{Colors.RESET}       # Console mode with Rich UI")
+    print(f"  {Colors.BROWN}python setup.py --what-if{Colors.RESET}      # Test mode")
+    print(f"  {Colors.BROWN}python setup.py --help{Colors.RESET}         # Show all options")
     
-    print("\nFor more information, see README.md")
-    print("=" * 70 + "\n")
+    print(f"\n{Colors.DIM}For more information, see README.md{Colors.RESET}")
+    print(f"{Colors.BROWN}{'═' * 76}{Colors.RESET}\n")
 
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Bootstrap interrupted by user.")
+        print(f"\n\n{Colors.GOLD}⚠  Bootstrap interrupted by user.{Colors.RESET}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\n❌ Bootstrap failed with error: {e}")
+        print(f"\n\n{Colors.RED}{Colors.BOLD}❌ Bootstrap failed with error: {e}{Colors.RESET}")
         sys.exit(1)

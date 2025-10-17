@@ -93,7 +93,8 @@ function Install-EZTools {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [string]$Destination = 'C:\\Tools\\EricZimmermanTools',
-        [string]$NetVersion = '6',
+        # Default to 0 (all) so we get both net6 and net9 tools like Registry Explorer
+        [int]$NetVersion = 0,
         [string]$LogDir
     )
 
@@ -111,7 +112,10 @@ function Install-EZTools {
     $ezToolsDir = $Destination
     $ezToolsZip = Join-Path $env:TEMP 'Get-ZimmermanTools.zip'
     $ezToolsScript = Join-Path $ezToolsDir 'Get-ZimmermanTools.ps1'
-    $ezToolsNetDir = Join-Path $ezToolsDir ("net$NetVersion")
+    # Potential net-specific subdirectories
+    $ezToolsNet4Dir = Join-Path $ezToolsDir 'net4'
+    $ezToolsNet6Dir = Join-Path $ezToolsDir 'net6'
+    $ezToolsNet9Dir = Join-Path $ezToolsDir 'net9'
     $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'EricZimmermanTools'
 
     Invoke-ProgressStep -Name 'Check OS and Admin' -StepIndex (++$step) -TotalSteps $total -Action {
@@ -160,21 +164,32 @@ function Install-EZTools {
         }
     } | Out-Null
 
-    Invoke-ProgressStep -Name "Add net$NetVersion directory to PATH" -StepIndex (++$step) -TotalSteps $total -Action {
-        if (Test-Path -LiteralPath $ezToolsNetDir) {
-            if (Get-Command Add-PathIfMissing -ErrorAction SilentlyContinue) { Add-PathIfMissing -Path $ezToolsNetDir -Scope Machine } else { $env:Path = "$env:Path;$ezToolsNetDir" }
-        } else {
-            Add-LogLine -Level Warn -Message "Expected tools directory not found: $ezToolsNetDir"
+    Invoke-ProgressStep -Name 'Add net directories to PATH' -StepIndex (++$step) -TotalSteps $total -Action {
+        $netDirs = @()
+        if (Test-Path -LiteralPath $ezToolsNet4Dir) { $netDirs += $ezToolsNet4Dir }
+        if (Test-Path -LiteralPath $ezToolsNet6Dir) { $netDirs += $ezToolsNet6Dir }
+        if (Test-Path -LiteralPath $ezToolsNet9Dir) { $netDirs += $ezToolsNet9Dir }
+        if ($netDirs.Count -eq 0) {
+            Add-LogLine -Level Warn -Message "No net-specific directories found under $ezToolsDir (expected net4/net6/net9)."
+        }
+        foreach ($dir in $netDirs) {
+            if (Get-Command Add-PathIfMissing -ErrorAction SilentlyContinue) { Add-PathIfMissing -Path $dir -Scope Machine } else { $env:Path = "$env:Path;$dir" }
+            Add-LogLine -Level Success -Message "Added to PATH: $dir"
         }
     } | Out-Null
 
     Invoke-ProgressStep -Name 'Create desktop shortcuts' -StepIndex (++$step) -TotalSteps $total -Action {
-        if (Test-Path -LiteralPath $ezToolsNetDir) {
+        $shell = New-Object -ComObject WScript.Shell
+        $netDirs = @()
+        if (Test-Path -LiteralPath $ezToolsNet4Dir) { $netDirs += $ezToolsNet4Dir }
+        if (Test-Path -LiteralPath $ezToolsNet6Dir) { $netDirs += $ezToolsNet6Dir }
+        if (Test-Path -LiteralPath $ezToolsNet9Dir) { $netDirs += $ezToolsNet9Dir }
+
+        foreach ($dir in $netDirs) {
             if (Get-Command New-ShortcutsFromFolder -ErrorAction SilentlyContinue) {
-                New-ShortcutsFromFolder -Folder $ezToolsNetDir -ShortcutDir $desktopShortcutDir -WorkingDir $ezToolsNetDir
+                New-ShortcutsFromFolder -Folder $dir -ShortcutDir $desktopShortcutDir -WorkingDir $dir
             } else {
-                $shell = New-Object -ComObject WScript.Shell
-                Get-ChildItem -Path $ezToolsNetDir -Filter '*.exe' -File | ForEach-Object {
+                Get-ChildItem -Path $dir -Filter '*.exe' -File | ForEach-Object {
                     $lnk = Join-Path $desktopShortcutDir ("$($_.Name).lnk")
                     $sc = $shell.CreateShortcut($lnk)
                     $sc.TargetPath = $_.FullName
@@ -185,10 +200,10 @@ function Install-EZTools {
                 }
             }
         }
-        # Ensure MFTExplorer shortcut exists even if not under netX
+
+        # Ensure MFTExplorer shortcut exists even if not under a netX folder
         $mft = Get-ChildItem -Path $ezToolsDir -Recurse -Filter 'MFTExplorer.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($mft) {
-            $shell = New-Object -ComObject WScript.Shell
             $lnk = Join-Path $desktopShortcutDir 'MFTExplorer.exe.lnk'
             $sc = $shell.CreateShortcut($lnk)
             $sc.TargetPath = $mft.FullName
@@ -197,11 +212,11 @@ function Install-EZTools {
             $sc.Description = 'MFT Explorer'
             $sc.Save()
         }
-        # Ensure TimelineExplorer shortcut exists even if not under netX
+
+        # Ensure TimelineExplorer shortcut exists even if not under a netX folder
         $tlx = Get-ChildItem -Path $ezToolsDir -Recurse -Filter 'TimelineExplorer.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($tlx) {
             try {
-                $shell = New-Object -ComObject WScript.Shell
                 # Shortcut inside EricZimmermanTools desktop folder
                 $lnk1 = Join-Path $desktopShortcutDir 'TimelineExplorer.exe.lnk'
                 $sc1 = $shell.CreateShortcut($lnk1)
@@ -227,6 +242,35 @@ function Install-EZTools {
             }
         } else {
             Add-LogLine -Level Warn -Message 'TimelineExplorer.exe not found after EZ Tools install.'
+        }
+
+        # Ensure Registry Explorer shortcut exists (common request)
+        $re = Get-ChildItem -Path $ezToolsDir -Recurse -Filter 'RegistryExplorer.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($re) {
+            try {
+                $lnk1 = Join-Path $desktopShortcutDir 'RegistryExplorer.exe.lnk'
+                $sc1 = $shell.CreateShortcut($lnk1)
+                $sc1.TargetPath = $re.FullName
+                $sc1.WorkingDirectory = $re.Directory.FullName
+                $sc1.WindowStyle = 1
+                $sc1.Description = 'Registry Explorer'
+                $sc1.Save()
+
+                $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+                $lnk2 = Join-Path $desktopRoot 'Registry Explorer.lnk'
+                $sc2 = $shell.CreateShortcut($lnk2)
+                $sc2.TargetPath = $re.FullName
+                $sc2.WorkingDirectory = $re.Directory.FullName
+                $sc2.WindowStyle = 1
+                $sc2.Description = 'Registry Explorer'
+                $sc2.Save()
+
+                Add-LogLine -Level Success -Message "Registry Explorer shortcuts created."
+            } catch {
+                Add-LogLine -Level Warn -Message "Failed to create Registry Explorer shortcuts: $($_.Exception.Message)"
+            }
+        } else {
+            Add-LogLine -Level Warn -Message 'RegistryExplorer.exe not found after EZ Tools install.'
         }
     } | Out-Null
 
