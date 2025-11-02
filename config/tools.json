@@ -37,6 +37,24 @@
       "description": "Analysis tools and utilities.",
       "items": [
         {
+          "id": "cffexplorer",
+          "name": "CFF Explorer (Explorer Suite)",
+          "description": "PE editor and analysis tool",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-cff-explorer.ps1",
+          "function_name": "Install-CFFExplorer"
+        },
+        {
+          "id": "apatedns",
+          "name": "ApateDNS",
+          "description": "Simulated DNS service for malware analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-apatedns.ps1",
+          "function_name": "Install-ApateDNS"
+        },
+        {
           "id": "wireshark",
           "name": "Wireshark",
           "description": "Network protocol analyzer",
@@ -131,6 +149,15 @@
       "name": "Forensics Bundles",
       "description": "Specialized forensic tooling.",
       "items": [
+        {
+          "id": "sysinternals",
+          "name": "Sysinternals Suite",
+          "description": "Microsoft Sysinternals tools",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-sysinternals.ps1",
+          "function_name": "Install-Sysinternals"
+        },
         {
           "id": "eztools",
           "name": "Eric Zimmerman Tools (EZ Tools)",
