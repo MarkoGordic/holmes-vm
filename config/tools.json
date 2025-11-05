@@ -141,6 +141,15 @@
           "installer_type": "powershell",
           "script_path": "util/install-zui.ps1",
           "function_name": "Install-Zui"
+        },
+        {
+          "id": "networkminer",
+          "name": "NetworkMiner",
+          "description": "Network forensics analysis tool",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "util/install-networkminer.ps1",
+          "function_name": "Install-NetworkMiner"
         }
       ]
     },

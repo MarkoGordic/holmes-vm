@@ -3,7 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 REM Holmes VM Unified Start Script
 REM - Elevates to Administrator if needed
-REM - Installs Chocolatey ("chocho") if missing
+REM - Installs Chocolatey (choco) if missing
 REM - Installs Python if missing
 REM - Runs bootstrap then immediately runs setup (installer)
 
@@ -65,15 +65,15 @@ if not defined PYTHON_EXE (
     choco install python -y
     set "CHOCO_EXIT=!errorlevel!"
     if "!CHOCO_EXIT!"=="3010" (
-        echo [OK] Python installed ^(reboot recommended, continuing^)
+        echo [OK] Python installed (reboot recommended, continuing)
     ) else if not "!CHOCO_EXIT!"=="0" (
-        echo [WARNING] 'choco install python' failed ^(exit code: !CHOCO_EXIT!^). Trying 'python3'...
+        echo [WARNING] 'choco install python' failed (exit code: !CHOCO_EXIT!). Trying 'python3'...
         choco install python3 -y
         set "CHOCO_EXIT=!errorlevel!"
         if "!CHOCO_EXIT!"=="3010" (
-            echo [OK] Python3 installed ^(reboot recommended, continuing^)
+            echo [OK] Python3 installed (reboot recommended, continuing)
         ) else if not "!CHOCO_EXIT!"=="0" (
-            echo [ERROR] Failed to install Python ^(exit code: !CHOCO_EXIT!^)
+            echo [ERROR] Failed to install Python (exit code: !CHOCO_EXIT!)
             call :HANG !CHOCO_EXIT!
         ) else (
             echo [OK] Python3 installed successfully

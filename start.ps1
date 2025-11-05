@@ -8,29 +8,29 @@ Set-Location -Path $PSScriptRoot
 
 function Write-Header {
     param([string]$Text)
-    Write-Host "`n$('=' * 70)" -ForegroundColor Cyan
-    Write-Host "  $Text" -ForegroundColor Cyan
-    Write-Host "$('=' * 70)`n" -ForegroundColor Cyan
+    Write-Host "`n$('=' * 70)"
+    Write-Host "  $Text"
+    Write-Host "$('=' * 70)`n"
 }
 
 function Write-Success {
     param([string]$Text)
-    Write-Host "[OK] $Text" -ForegroundColor Green
+    Write-Host "[OK] $Text"
 }
 
 function Write-Error-Custom {
     param([string]$Text)
-    Write-Host "[ERROR] $Text" -ForegroundColor Red
+    Write-Host "[ERROR] $Text"
 }
 
 function Write-Warning-Custom {
     param([string]$Text)
-    Write-Host "[WARNING] $Text" -ForegroundColor Yellow
+    Write-Host "[WARNING] $Text"
 }
 
 function Write-Info {
     param([string]$Text)
-    Write-Host "  → $Text" -ForegroundColor Gray
+    Write-Host "  -> $Text"
 }
 
 # Check if running as Administrator
@@ -152,22 +152,22 @@ try {
 }
 
 Write-Host ""
-Write-Host "Running bootstrap script..." -ForegroundColor Cyan
+Write-Host "Running bootstrap script..."
 Write-Host ""
 
 # Run the bootstrap script
 $bootstrapSuccess = $false
 try {
     if ($script:UsePythonShim) {
-        Write-Host "[DEBUG] Using Python shim: $($script:PythonCmd)" -ForegroundColor Gray
+        Write-Host "[DEBUG] Using Python shim: $($script:PythonCmd)"
         & $script:PythonCmd bootstrap.py
     } else {
-        Write-Host "[DEBUG] Using system Python" -ForegroundColor Gray
+        Write-Host "[DEBUG] Using system Python"
         python bootstrap.py
     }
     
     $bootstrapExitCode = $LASTEXITCODE
-    Write-Host "[DEBUG] Bootstrap exit code: $bootstrapExitCode" -ForegroundColor Gray
+    Write-Host "[DEBUG] Bootstrap exit code: $bootstrapExitCode"
     
     if ($bootstrapExitCode -eq 0) {
         $bootstrapSuccess = $true
@@ -179,7 +179,7 @@ try {
     Write-Error-Custom "Bootstrap failed!"
     Write-Info "Error: $_"
     Write-Host ""
-    Write-Host "Press any key to exit..." -ForegroundColor Gray
+    Write-Host "Press any key to exit..."
     pause
     exit 1
 }
@@ -188,7 +188,7 @@ if (-not $bootstrapSuccess) {
     Write-Host ""
     Write-Error-Custom "Bootstrap did not complete successfully"
     Write-Host ""
-    Write-Host "Press any key to exit..." -ForegroundColor Gray
+    Write-Host "Press any key to exit..."
     pause
     exit 1
 }
@@ -201,21 +201,21 @@ $response = Read-Host "Do you want to run Holmes VM setup now? (Y/N)"
 
 if ($response -eq 'Y' -or $response -eq 'y') {
     Write-Host ""
-    Write-Host "Starting Holmes VM Setup..." -ForegroundColor Cyan
+    Write-Host "Starting Holmes VM Setup..."
     Write-Host ""
     
     $setupSuccess = $false
     try {
         if ($script:UsePythonShim) {
-            Write-Host "[DEBUG] Using Python shim for setup" -ForegroundColor Gray
+            Write-Host "[DEBUG] Using Python shim for setup"
             & $script:PythonCmd setup.py
         } else {
-            Write-Host "[DEBUG] Using system Python for setup" -ForegroundColor Gray
+            Write-Host "[DEBUG] Using system Python for setup"
             python setup.py
         }
         
         $setupExitCode = $LASTEXITCODE
-        Write-Host "[DEBUG] Setup exit code: $setupExitCode" -ForegroundColor Gray
+        Write-Host "[DEBUG] Setup exit code: $setupExitCode"
         
         if ($setupExitCode -eq 0) {
             $setupSuccess = $true
@@ -233,11 +233,11 @@ if ($response -eq 'Y' -or $response -eq 'y') {
     if ($setupSuccess) {
         Write-Header "Setup Finished Successfully!"
     } else {
-        Write-Host "========================================================================" -ForegroundColor Red
-        Write-Host "  Setup Failed!" -ForegroundColor Red
-        Write-Host "========================================================================" -ForegroundColor Red
+        Write-Host "========================================================================"
+        Write-Host "  Setup Failed!"
+        Write-Host "========================================================================"
         Write-Host ""
-        Write-Host "Please check the error messages above." -ForegroundColor Yellow
+        Write-Host "Please check the error messages above."
     }
 } else {
     Write-Host ""
@@ -251,6 +251,6 @@ if ($response -eq 'Y' -or $response -eq 'y') {
 }
 
 Write-Host ""
-Write-Host "Press any key to exit..." -ForegroundColor Gray
+Write-Host "Press any key to exit..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 exit 0
