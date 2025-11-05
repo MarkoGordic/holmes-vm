@@ -8,13 +8,13 @@ import time
 import threading
 from typing import List, Tuple, Callable, Any, Optional
 
-from ..core.config import Config
-from ..core.logger import Logger
-from ..utils.system import is_admin, is_windows
-from ..installers.base import get_registry
-from ..installers.chocolatey import ChocolateyInstaller
-from ..installers.powershell import PowerShellInstaller
-from ..installers.functions import (
+from holmes_vm.core.config import Config
+from holmes_vm.core.logger import Logger
+from holmes_vm.utils.system import is_admin, is_windows
+from holmes_vm.installers.base import get_registry
+from holmes_vm.installers.chocolatey import ChocolateyInstaller
+from holmes_vm.installers.powershell import PowerShellInstaller
+from holmes_vm.installers.functions import (
     NetworkCheckInstaller, ChocolateySetupInstaller, PipUpgradeInstaller,
     WallpaperInstaller, AppearanceInstaller, PinTaskbarInstaller
 )
@@ -31,7 +31,7 @@ class SetupOrchestrator:
     
     def build_steps_from_selection(self, selected_ids: List[str]) -> List[Tuple[str, Callable]]:
         """Build installation steps from selected tool IDs"""
-        steps = []
+        steps: List[Tuple[str, Callable]] = []
         
         # Always assert platform/admin
         steps.append(('Assert Windows/Admin', lambda: self._assert_windows_admin()))
@@ -46,8 +46,7 @@ class SetupOrchestrator:
             installer_type = tool_config.get('installer_type')
             
             if installer_type == 'function':
-                # Function-based installer
-                installer_id = tool_config.get('installer')
+                installer_id = self.config.get_function_installer_id(tool_id)
                 installer = self.registry.get_installer(installer_id, self.config, self.logger, self.args)
                 if installer:
                     steps.append((installer.get_name(), lambda inst=installer: inst.install()))
@@ -55,39 +54,30 @@ class SetupOrchestrator:
                     self.logger.warn(f"Installer not found: {installer_id}")
             
             elif installer_type == 'chocolatey':
-                # Chocolatey package installer
-                package_name = tool_config.get('package_name')
-                tool_name = tool_config.get('name')
+                choco = self.config.get_choco_params(tool_id) or {}
                 installer = ChocolateyInstaller(
                     self.config, self.logger, self.args,
-                    package_name, tool_name
+                    choco.get('name'), choco.get('tool_name'), choco.get('version')
                 )
                 steps.append((installer.get_name(), lambda inst=installer: inst.install()))
             
             elif installer_type == 'powershell':
-                # PowerShell script installer
-                script_path = tool_config.get('script_path')
-                function_name = tool_config.get('function_name')
-                tool_name = tool_config.get('name')
-                ps_args = tool_config.get('args', '')
-                
+                ps = self.config.get_powershell_params(tool_id) or {}
+                ps_args = ps.get('args', '')
                 # Add LogDir argument if installing EZ Tools
                 if tool_id == 'eztools':
                     log_dir = getattr(self.args, 'log_dir', None)
                     if log_dir:
                         ps_args = f"-LogDir '{log_dir}'"
-                
                 installer = PowerShellInstaller(
                     self.config, self.logger, self.args,
-                    script_path, function_name, tool_name, ps_args
+                    ps.get('script_path'), ps.get('function_name'), ps.get('tool_name'), ps_args
                 )
                 steps.append((installer.get_name(), lambda inst=installer: inst.install()))
             
             # Handle post-install actions
-            post_install = tool_config.get('post_install', [])
-            for action in post_install:
+            for action in tool_config.get('post_install', []):
                 action_type = action.get('type')
-                
                 if action_type == 'pin_taskbar':
                     path = action.get('path')
                     tool_name = tool_config.get('name')
@@ -96,7 +86,6 @@ class SetupOrchestrator:
                         path, tool_name
                     )
                     steps.append((installer.get_name(), lambda inst=installer: inst.install()))
-                
                 elif action_type == 'pin_taskbar_multi':
                     # Try multiple paths for pinning
                     paths = action.get('paths', [])
@@ -106,10 +95,7 @@ class SetupOrchestrator:
                             self.config, self.logger, self.args,
                             path, tool_name
                         )
-                        steps.append((
-                            f"Pin {tool_name} (attempt)",
-                            lambda inst=installer: inst.install()
-                        ))
+                        steps.append((f"Pin {tool_name} (attempt)", lambda inst=installer: inst.install()))
         
         return steps
     
@@ -138,16 +124,14 @@ class SetupOrchestrator:
             self.logger.current_step = name
             self.logger.info(f"{name}…")
             
-            t0 = time.time()
             try:
                 action()
                 self.logger.success(f"{name} completed.")
             except Exception as e:
                 self.logger.error(f"{name} failed: {e}")
             
-            t1 = time.time()
             done_fraction = i / max(1, total)
-            elapsed = t1 - start
+            elapsed = time.time() - start
             eta = (elapsed / done_fraction) - elapsed if done_fraction > 0 else None
             
             if ui:

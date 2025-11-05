@@ -5,9 +5,9 @@ Base installer class and registry for Holmes VM tools
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
-from ..core.logger import Logger
-from ..core.config import Config
+from typing import Optional, Dict, Any, Type
+from holmes_vm.core.logger import Logger
+from holmes_vm.core.config import Config
 
 
 class BaseInstaller(ABC):
@@ -21,12 +21,12 @@ class BaseInstaller(ABC):
     @abstractmethod
     def install(self) -> bool:
         """Execute installation. Returns True on success, False on failure"""
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_name(self) -> str:
         """Get installer name"""
-        pass
+        raise NotImplementedError
     
     def should_force_reinstall(self) -> bool:
         """Check if should force reinstall"""
@@ -41,9 +41,9 @@ class InstallerRegistry:
     """Registry of available installers"""
     
     def __init__(self):
-        self._installers: Dict[str, type] = {}
+        self._installers: Dict[str, Type[BaseInstaller]] = {}
     
-    def register(self, installer_id: str, installer_class: type):
+    def register(self, installer_id: str, installer_class: Type[BaseInstaller]):
         """Register an installer"""
         self._installers[installer_id] = installer_class
     
@@ -70,7 +70,7 @@ def get_registry() -> InstallerRegistry:
 
 def register_installer(installer_id: str):
     """Decorator to register an installer"""
-    def decorator(cls):
+    def decorator(cls: Type[BaseInstaller]):
         _registry.register(installer_id, cls)
         return cls
     return decorator

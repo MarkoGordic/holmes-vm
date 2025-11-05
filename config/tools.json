@@ -1,4 +1,9 @@
 {
+  "versions": {
+    "wireshark": null,
+    "dotnet": null,
+    "dotnet9": null
+  },
   "categories": [
     {
       "id": "core",
@@ -42,7 +47,7 @@
           "description": "PE editor and analysis tool",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-cff-explorer.ps1",
+          "script_path": "scripts/windows/install-cff-explorer.ps1",
           "function_name": "Install-CFFExplorer"
         },
         {
@@ -51,7 +56,7 @@
           "description": "Simulated DNS service for malware analysis",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-apatedns.ps1",
+          "script_path": "scripts/windows/install-apatedns.ps1",
           "function_name": "Install-ApateDNS"
         },
         {
@@ -139,7 +144,7 @@
           "description": "GUI for Zeek/Suricata logs",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-zui.ps1",
+          "script_path": "scripts/windows/install-zui.ps1",
           "function_name": "Install-Zui"
         },
         {
@@ -148,7 +153,7 @@
           "description": "Network forensics analysis tool",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-networkminer.ps1",
+          "script_path": "scripts/windows/install-networkminer.ps1",
           "function_name": "Install-NetworkMiner"
         }
       ]
@@ -164,7 +169,7 @@
           "description": "Microsoft Sysinternals tools",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-sysinternals.ps1",
+          "script_path": "scripts/windows/install-sysinternals.ps1",
           "function_name": "Install-Sysinternals"
         },
         {
@@ -173,7 +178,7 @@
           "description": "Comprehensive forensics toolkit",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-eztools.ps1",
+          "script_path": "scripts/windows/install-eztools.ps1",
           "function_name": "Install-EZTools",
           "post_install": [
             {
@@ -198,7 +203,7 @@
           "description": "Windows Registry forensics tool",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-regripper.ps1",
+          "script_path": "scripts/windows/install-regripper.ps1",
           "function_name": "Install-RegRipper"
         },
         {
@@ -207,7 +212,7 @@
           "description": "Rapidly search and hunt through Windows event logs",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "util/install-chainsaw.ps1",
+          "script_path": "scripts/windows/install-chainsaw.ps1",
           "function_name": "Install-Chainsaw"
         }
       ]

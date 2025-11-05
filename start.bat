@@ -132,9 +132,9 @@ echo   Running bootstrap.py
 echo ========================================================================
 echo.
 if defined USE_PY_LAUNCHER (
-    py -3 bootstrap.py
+    py -3 holmes_vm\bootstrap.py
 ) else (
-    "%PYTHON_EXE%" bootstrap.py
+    "%PYTHON_EXE%" holmes_vm\bootstrap.py
 )
 set "BOOTSTRAP_EXIT=%errorlevel%"
 echo [DEBUG] Bootstrap exit code: %BOOTSTRAP_EXIT%
@@ -149,9 +149,9 @@ echo   Running setup.py (installer)
 echo ========================================================================
 echo.
 if defined USE_PY_LAUNCHER (
-    py -3 setup.py
+    py -3 holmes_vm\setup.py
 ) else (
-    "%PYTHON_EXE%" setup.py
+    "%PYTHON_EXE%" holmes_vm\setup.py
 )
 set "SETUP_EXIT=%errorlevel%"
 echo [DEBUG] Setup exit code: %SETUP_EXIT%

@@ -12,10 +12,11 @@ from ..utils.system import run_powershell, import_common_module_and
 class ChocolateyInstaller(BaseInstaller):
     """Installer for Chocolatey packages"""
     
-    def __init__(self, config, logger, args, package_name: str, tool_name: str):
+    def __init__(self, config, logger, args, package_name: str, tool_name: str, version: str | None = None):
         super().__init__(config, logger, args)
         self.package_name = package_name
         self.tool_name = tool_name
+        self.version = version
     
     def get_name(self) -> str:
         return f"Install {self.tool_name}"
@@ -25,6 +26,8 @@ class ChocolateyInstaller(BaseInstaller):
         self.logger.info(f'Installing {self.tool_name} via Chocolatey...')
         
         args = f"-Name '{self.package_name}'"
+        if self.version:
+            args += f" -Version '{self.version}'"
         if self.should_force_reinstall():
             args += ' -ForceReinstall'
         if self.is_what_if_mode():

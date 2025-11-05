@@ -8,8 +8,9 @@ import os
 import sys
 import shutil
 import subprocess
-from .base import BaseInstaller, register_installer
-from ..utils.system import run_powershell, import_common_module_and, check_network
+from typing import Optional
+from holmes_vm.installers.base import BaseInstaller, register_installer
+from holmes_vm.utils.system import run_powershell, import_common_module_and
 
 
 @register_installer('network_check')
@@ -29,7 +30,7 @@ class NetworkCheckInstaller(BaseInstaller):
         for url in urls:
             try:
                 import urllib.request
-                with urllib.request.urlopen(url, timeout=7) as resp:
+                with urllib.request.urlopen(url, timeout=7) as resp:  # nosec B310
                     if 200 <= resp.status < 400:
                         ok += 1
                         self.logger.success(f'Reachable: {url}')

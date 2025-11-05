@@ -21,7 +21,8 @@ class Logger:
         os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         self._lock = threading.Lock()
         self.current_step = None  # Optional context injected by runner
-        self.verbose = True  # Control verbosity
+        # Use a clearly named flag for verbosity to avoid name clashes with methods
+        self._verbose_enabled = True
 
     def _write_file(self, line: str):
         """Write log line to file"""
@@ -47,11 +48,15 @@ class Logger:
         
         # Send to Rich console if available and not in GUI mode
         if self.rich_console and not self.ui:
-            if verbose and not self.verbose:
+            if verbose and not self._verbose_enabled:
                 return  # Skip verbose messages if verbosity is off
             
             if verbose:
-                self.rich_console.log_verbose(msg)
+                # Verbose/debug path
+                if hasattr(self.rich_console, 'log_verbose'):
+                    self.rich_console.log_verbose(msg)
+                else:
+                    self.rich_console.log_info(msg)
             elif level.upper() == 'INFO':
                 self.rich_console.log_info(msg)
             elif level.upper() == 'SUCCESS':
@@ -82,21 +87,23 @@ class Logger:
         """Log success message"""
         self.log('SUCCESS', msg, verbose)
     
-    def verbose(self, msg: str):
+    def debug(self, msg: str):
         """Log verbose/debug message"""
         self.log('VERBOSE', msg, verbose=True)
     
     def set_verbose(self, enabled: bool):
         """Enable or disable verbose logging"""
-        self.verbose = enabled
+        self._verbose_enabled = enabled
+
 
 def get_default_log_dir() -> str:
-    """Get default log directory path"""
-    return os.path.join(
-        os.environ.get('ProgramData', 'C:/ProgramData'),
-        'HolmesVM',
-        'Logs'
-    )
+    """Get default log directory path in a cross-platform way"""
+    # Prefer a sensible default per platform. On Windows, respect ProgramData.
+    if os.name == 'nt':
+        base = os.environ.get('ProgramData', r'C:\\ProgramData')
+        return os.path.join(base, 'HolmesVM', 'Logs')
+    # On POSIX (developer machines), store under user home
+    return os.path.join(os.path.expanduser('~'), '.holmesvm', 'logs')
 
 
 def create_logger(log_dir: Optional[str] = None, ui: Optional[Any] = None, rich_console: Optional[Any] = None) -> Logger:

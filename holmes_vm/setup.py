@@ -54,6 +54,33 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def _select_ui(args):
+    """Select and initialize the best available UI based on args and availability.
+    Returns (ui, rich_ui, use_gui_flag)
+    """
+    if not args.no_gui:
+        if CTK_SUPPORT:
+            try:
+                return ModernUI(APP_NAME), None, True
+            except Exception as e:
+                print(f"Warning: Could not initialize modern UI: {e}")
+        if TK_SUPPORT:
+            try:
+                return UI(APP_NAME), None, True
+            except Exception as e:
+                print(f"Warning: Could not initialize Tk UI: {e}")
+    # Console fallbacks
+    if RICH_SUPPORT:
+        try:
+            rich = RichConsoleUI(APP_NAME)
+            rich.show_banner()
+            rich.show_welcome()
+            return None, rich, False
+        except Exception as e:
+            print(f"Warning: Could not initialize Rich UI: {e}")
+    return None, None, False
+
+
 def main():
     """Main entry point"""
     args = parse_arguments()
@@ -61,47 +88,21 @@ def main():
     # Initialize configuration
     config = get_config()
     
-    # Determine which UI to use (prefer modern CustomTkinter > tkinter > Rich > plain)
-    use_modern_gui = (not args.no_gui) and CTK_SUPPORT
-    use_gui = (not args.no_gui) and TK_SUPPORT and not use_modern_gui
-    
-    ui = None
-    rich_ui = None
-    
-    # Try modern CustomTkinter UI first
-    if use_modern_gui:
-        try:
-            ui = ModernUI(APP_NAME)
-        except Exception as e:
-            print(f"Warning: Could not initialize modern UI: {e}")
-            use_modern_gui = False
-            use_gui = TK_SUPPORT
-            ui = None
-    
-    # Fall back to regular tkinter UI
-    if use_gui and not use_modern_gui:
-        try:
-            ui = UI(APP_NAME)
-        except Exception:
-            use_gui = False
-            ui = None
-    
-    # If not using GUI, try Rich console
-    if not use_modern_gui and not use_gui and RICH_SUPPORT:
-        try:
-            rich_ui = RichConsoleUI(APP_NAME)
-            rich_ui.show_banner()
-            rich_ui.show_welcome()
-        except Exception:
-            rich_ui = None
+    # Select UI
+    ui, rich_ui, using_gui = _select_ui(args)
     
     # Create logger with appropriate UI backend
     logger = create_logger(args.log_dir, ui, rich_ui)
+
+    # Validate config
+    if not config.validate(logger):
+        logger.error('Configuration invalid. Fix config/tools.json and try again.')
+        return 2
     
     # Create orchestrator
     orchestrator = SetupOrchestrator(config, logger, args)
     
-    if (use_modern_gui or use_gui) and ui is not None:
+    if using_gui and ui is not None:
         # GUI mode: show selection dialog then run
         cancel_event = threading.Event()
         ui.set_stop_callback(cancel_event.set)
@@ -130,11 +131,9 @@ def main():
         # Rich console mode with enhanced UI
         logger.info('Running in enhanced console mode with Rich UI')
         
-        # For now, use default selections (could add interactive mode later)
         selected_ids = config.get_default_tool_ids()
         steps = orchestrator.build_steps_from_selection(selected_ids)
         
-        # Run with Rich UI progress tracking
         total = len(steps)
         for i, (name, action) in enumerate(steps, start=1):
             rich_ui.start_step(i, total, name)

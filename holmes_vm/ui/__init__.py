@@ -1,10 +1,9 @@
-"""UI components for Holmes VM setup - Enhanced with Sherlock Holmes theme"""
+"""UI components for Holmes VM setup"""
 
-from .colors import *
-from .window import UI, is_tk_available
+from holmes_vm.ui.window import UI, is_tk_available
 
 try:
-    from .rich_console import RichConsoleUI, is_rich_available
+    from holmes_vm.ui.rich_console import RichConsoleUI, is_rich_available
     RICH_AVAILABLE = is_rich_available()
 except ImportError:
     RICH_AVAILABLE = False

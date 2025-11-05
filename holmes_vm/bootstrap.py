@@ -174,10 +174,10 @@ def verify_installation():
         print_error("config/tools.json not found")
         return False
     
-    # Check if PowerShell module exists
-    module_path = Path(__file__).parent / 'modules' / 'Holmes.Common.psm1'
+    # Check if PowerShell module exists (new path)
+    module_path = Path(__file__).parent / 'scripts' / 'windows' / 'Holmes.Common.psm1'
     if not module_path.exists():
-        print_error("modules/Holmes.Common.psm1 not found")
+        print_error("scripts/windows/Holmes.Common.psm1 not found")
         return False
     
     print_success("Installation verified")
@@ -251,17 +251,17 @@ def main():
     
     if is_admin_user:
         print(f"{Colors.BROWN}You can now run Holmes VM setup:{Colors.RESET}")
-        print(f"  {Colors.BOLD}python setup.py{Colors.RESET}")
+        print(f"  {Colors.BOLD}python holmes_vm/setup.py{Colors.RESET}")
     else:
         print(f"{Colors.GOLD}⚠  IMPORTANT: Run setup as Administrator:{Colors.RESET}")
         print("  1. Open Command Prompt or PowerShell as Administrator")
         print("  2. Navigate to this directory")
-        print(f"  3. Run: {Colors.BOLD}python setup.py{Colors.RESET}")
+        print(f"  3. Run: {Colors.BOLD}python holmes_vm/setup.py{Colors.RESET}")
     
     print(f"\n{Colors.DIM}Other options:{Colors.RESET}")
-    print(f"  {Colors.BROWN}python setup.py --no-gui{Colors.RESET}       # Console mode with Rich UI")
-    print(f"  {Colors.BROWN}python setup.py --what-if{Colors.RESET}      # Test mode")
-    print(f"  {Colors.BROWN}python setup.py --help{Colors.RESET}         # Show all options")
+    print(f"  {Colors.BROWN}python holmes_vm/setup.py --no-gui{Colors.RESET}       # Console mode with Rich UI")
+    print(f"  {Colors.BROWN}python holmes_vm/setup.py --what-if{Colors.RESET}      # Test mode")
+    print(f"  {Colors.BROWN}python holmes_vm/setup.py --help{Colors.RESET}         # Show all options")
     
     print(f"\n{Colors.DIM}For more information, see README.md{Colors.RESET}")
     print(f"{Colors.BROWN}{'═' * 76}{Colors.RESET}\n")
