@@ -24,6 +24,19 @@ except ImportError:
 from typing import Optional, List, Dict, Any
 import time
 
+# Import theme colors (teal-blue palette)
+from holmes_vm.ui.colors import (
+    COLOR_ACCENT,
+    COLOR_ACCENT_LIGHT,
+    COLOR_ACCENT_DARK,
+    COLOR_MUTED,
+    COLOR_SUCCESS,
+    COLOR_WARN,
+    COLOR_ERROR,
+    COLOR_FG_BRIGHT,
+    COLOR_BG,
+)
+
 
 # Sherlock Holmes themed banner
 HOLMES_BANNER = r"""
@@ -55,7 +68,7 @@ class RichConsoleUI:
         
     def show_banner(self):
         """Display the Holmes VM banner"""
-        banner_text = Text(HOLMES_BANNER, style="bold #A0826D")  # Victorian brown
+        banner_text = Text(HOLMES_BANNER, style=f"bold {COLOR_ACCENT}")
         self.console.print(Align.center(banner_text))
         self.console.print()
     
@@ -63,20 +76,20 @@ class RichConsoleUI:
         """Show welcome message in a panel"""
         welcome_panel = Panel(
             message,
-            title="[bold #A0826D]Welcome Detective[/bold #A0826D]",
-            border_style="#A0826D",  # Victorian brown
+            title=f"[bold {COLOR_ACCENT}]Welcome Detective[/bold {COLOR_ACCENT}]",
+            border_style=COLOR_ACCENT,
             box=box.DOUBLE,
             padding=(1, 2)
         )
         self.console.print(welcome_panel)
         self.console.print()
     
-    def create_progress(self) -> Progress:
+    def create_progress(self) -> Any:
         """Create a styled progress bar"""
         return Progress(
-            SpinnerColumn(spinner_name="dots", style="#A0826D"),  # Victorian brown
-            TextColumn("[bold #9A9593]{task.description}", justify="left"),  # Warm gray
-            BarColumn(bar_width=50, style="#A0826D", complete_style="#7A9A6F"),  # Brown/muted green
+            SpinnerColumn(spinner_name="dots", style=COLOR_ACCENT),
+            TextColumn(f"[bold {COLOR_MUTED}]{{task.description}}", justify="left"),
+            BarColumn(bar_width=50, style=COLOR_ACCENT, complete_style=COLOR_SUCCESS),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
             TextColumn("•"),
@@ -88,10 +101,10 @@ class RichConsoleUI:
     def show_selection_prompt(self):
         """Show component selection prompt"""
         prompt_panel = Panel(
-            "[#C9A56D]Starting interactive selection mode...[/#C9A56D]\n"  # Golden brown
+            f"[{COLOR_WARN}]Starting interactive selection mode...[/]\n"
             "The GUI will open to let you choose components to install.",
             title="[bold]Component Selection[/bold]",
-            border_style="#C9A56D",  # Golden brown
+            border_style=COLOR_WARN,
             padding=(1, 2)
         )
         self.console.print(prompt_panel)
@@ -104,28 +117,28 @@ class RichConsoleUI:
         self.step_start_time = time.time()
         
         step_header = Text()
-        step_header.append(f"[{step_num}/{total}] ", style="bold #A0826D")  # Victorian brown
-        step_header.append(step_name, style="bold white")
-        step_header.append(" 🔍", style="#C9A56D")  # Golden brown
+        step_header.append(f"[{step_num}/{total}] ", style=f"bold {COLOR_ACCENT}")
+        step_header.append(step_name, style=f"bold {COLOR_FG_BRIGHT}")
+        step_header.append(" 🔍", style=COLOR_ACCENT_LIGHT)
         
         self.console.print()
-        self.console.rule(step_header, style="#A0826D")  # Victorian brown
+        self.console.rule(step_header, style=COLOR_ACCENT)
     
     def log_info(self, message: str, prefix: str = "→"):
         """Log an info message"""
-        self.console.print(f"  [#9A9593]{prefix}[/#9A9593] {message}")  # Warm gray
+        self.console.print(f"  [{COLOR_MUTED}]{prefix}[/] {message}")
     
     def log_success(self, message: str):
         """Log a success message"""
-        self.console.print(f"  [#7A9A6F]✓[/#7A9A6F] {message}", style="#7A9A6F")  # Muted green
+        self.console.print(f"  [{COLOR_SUCCESS}]✓[/] {message}", style=COLOR_SUCCESS)
     
     def log_warning(self, message: str):
         """Log a warning message"""
-        self.console.print(f"  [#C9A56D]⚠[/#C9A56D] {message}", style="#C9A56D")  # Golden brown
+        self.console.print(f"  [{COLOR_WARN}]⚠[/] {message}", style=COLOR_WARN)
     
     def log_error(self, message: str):
         """Log an error message"""
-        self.console.print(f"  [#B86A60]✗[/#B86A60] {message}", style="#B86A60")  # Muted red
+        self.console.print(f"  [{COLOR_ERROR}]✗[/] {message}", style=COLOR_ERROR)
     
     def log_verbose(self, message: str):
         """Log a verbose/debug message (dimmed)"""
@@ -134,7 +147,7 @@ class RichConsoleUI:
     def complete_step(self, success: bool = True):
         """Mark current step as complete"""
         elapsed = time.time() - self.step_start_time
-        status = "[#7A9A6F]COMPLETE[/#7A9A6F]" if success else "[#B86A60]FAILED[/#B86A60]"
+        status = f"[{COLOR_SUCCESS}]COMPLETE[/]" if success else f"[{COLOR_ERROR}]FAILED[/]"
         self.console.print(f"  {status} [dim]({elapsed:.1f}s)[/dim]")
     
     def show_summary(self, stats: Dict[str, Any]):
@@ -144,23 +157,23 @@ class RichConsoleUI:
         hh, mm = divmod(mm, 60)
         
         summary_table = Table(
-            title="[bold #A0826D]Investigation Summary[/bold #A0826D]",  # Victorian brown
+            title=f"[bold {COLOR_ACCENT}]Investigation Summary[/bold {COLOR_ACCENT}]",
             box=box.DOUBLE_EDGE,
-            border_style="#A0826D",  # Victorian brown
+            border_style=COLOR_ACCENT,
             show_header=False,
             padding=(0, 2)
         )
         
-        summary_table.add_column("Metric", style="bold white")
-        summary_table.add_column("Value", style="#A0826D")  # Victorian brown
+        summary_table.add_column("Metric", style=f"bold {COLOR_FG_BRIGHT}")
+        summary_table.add_column("Value", style=COLOR_ACCENT)
         
         summary_table.add_row("Total Time", f"{hh:02d}:{mm:02d}:{ss:02d}")
         summary_table.add_row("Steps Completed", f"{stats.get('completed', 0)}/{stats.get('total', 0)}")
         
         if stats.get('errors', 0) > 0:
-            summary_table.add_row("Errors", f"[#B86A60]{stats.get('errors', 0)}[/#B86A60]")  # Muted red
+            summary_table.add_row("Errors", f"[{COLOR_ERROR}]{stats.get('errors', 0)}[/]")
         if stats.get('warnings', 0) > 0:
-            summary_table.add_row("Warnings", f"[#C9A56D]{stats.get('warnings', 0)}[/#C9A56D]")  # Golden brown
+            summary_table.add_row("Warnings", f"[{COLOR_WARN}]{stats.get('warnings', 0)}[/]")
         
         self.console.print()
         self.console.print(summary_table)
@@ -170,21 +183,19 @@ class RichConsoleUI:
         """Show completion message"""
         if success:
             completion_panel = Panel(
-                "[bold #7A9A6F]✓ Holmes VM setup completed successfully![/bold #7A9A6F]\n\n"  # Muted green
-                "[white]Your digital forensics environment is ready.[/white]\n"
-                "[dim]The game is afoot! 🔍[/dim]",
-                title="[bold #7A9A6F]Investigation Ready[/bold #7A9A6F]",  # Muted green
-                border_style="#7A9A6F",  # Muted green
+                f"[bold {COLOR_SUCCESS}]✓ Holmes VM setup completed successfully![/bold {COLOR_SUCCESS}]\n\n"
+                "[white]Your digital forensics environment is ready.[/white]",
+                title=f"[bold {COLOR_SUCCESS}]Investigation Ready[/bold {COLOR_SUCCESS}]",
+                border_style=COLOR_SUCCESS,
                 box=box.DOUBLE,
                 padding=(1, 2)
             )
         else:
             completion_panel = Panel(
-                "[bold #B86A60]Setup encountered issues.[/bold #B86A60]\n\n"  # Muted red
-                "[white]Please check the logs for details.[/white]\n"
-                "[dim]The investigation continues... 🔍[/dim]",
-                title="[bold #C9A56D]Attention Required[/bold #C9A56D]",  # Golden brown
-                border_style="#C9A56D",  # Golden brown
+                f"[bold {COLOR_ERROR}]Setup encountered issues.[/bold {COLOR_ERROR}]\n\n"
+                "[white]Please check the logs for details.[/white]",
+                title=f"[bold {COLOR_WARN}]Attention Required[/bold {COLOR_WARN}]",
+                border_style=COLOR_WARN,
                 box=box.DOUBLE,
                 padding=(1, 2)
             )
@@ -193,14 +204,14 @@ class RichConsoleUI:
     
     def show_error_panel(self, error_msg: str, details: Optional[str] = None):
         """Show error in a panel"""
-        content = f"[bold #B86A60]{error_msg}[/bold #B86A60]"  # Muted red
+        content = f"[bold {COLOR_ERROR}]{error_msg}[/bold {COLOR_ERROR}]"
         if details:
             content += f"\n\n[dim]{details}[/dim]"
         
         error_panel = Panel(
             content,
-            title="[bold #B86A60]Error[/bold #B86A60]",  # Muted red
-            border_style="#B86A60",  # Muted red
+            title=f"[bold {COLOR_ERROR}]Error[/bold {COLOR_ERROR}]",
+            border_style=COLOR_ERROR,
             box=box.HEAVY,
             padding=(1, 2)
         )
@@ -219,7 +230,7 @@ class RichConsoleUI:
 class RichProgressTracker:
     """Wrapper for Rich progress tracking with context manager support"""
     
-    def __init__(self, console_ui: RichConsoleUI, description: str):
+    def __init__(self, console_ui: 'RichConsoleUI', description: str):
         self.console_ui = console_ui
         self.description = description
         self.progress = console_ui.create_progress()

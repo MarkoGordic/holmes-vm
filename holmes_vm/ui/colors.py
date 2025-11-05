@@ -1,52 +1,51 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-UI Colors and theme constants - Sherlock Holmes Mystery Theme
-A sophisticated dark theme inspired by Victorian London fog and gaslight,
-with warm browns and cool grays reminiscent of 221B Baker Street.
+UI Colors and theme constants - Deep London Night (Teal-Blue)
+A refined dark theme inspired by the provided image: deep blue backgrounds,
+blue-gray text, and teal accents.
 """
 
 # === Core Background & Foreground ===
-# Deep charcoal background (like London fog at night)
-COLOR_BG = '#1A1A1A'            # Primary background (deep charcoal)
-COLOR_BG_SECONDARY = '#242424'  # Slightly lighter for panels
-COLOR_BG_TERTIARY = '#2E2E2E'   # Even lighter for inputs/boxes
+# Deep blue backgrounds
+COLOR_BG = '#0F1F2A'            # Primary background (deep blue)
+COLOR_BG_SECONDARY = '#142736'  # Panels
+COLOR_BG_TERTIARY = '#183447'   # Inputs/boxes
 
-# Foreground colors
-COLOR_FG = '#E8E6E3'            # Primary text (warm off-white)
-COLOR_FG_BRIGHT = '#F5F3F0'     # Brightest text for emphasis
-COLOR_MUTED = '#9A9593'         # Secondary text (warm gray)
-COLOR_MUTED_DARK = '#6B6663'    # Tertiary text (darker muted)
+# Foreground colors (cool neutrals)
+COLOR_FG = '#E6EEF3'            # Primary text (cool off-white)
+COLOR_FG_BRIGHT = '#F7FAFC'     # Bright text
+COLOR_MUTED = '#9BB3C5'         # Secondary text (blue-gray)
+COLOR_MUTED_DARK = '#6D8797'    # Tertiary text (darker blue-gray)
 
-# === Accent Colors (Victorian Brown & Bronze) ===
-COLOR_ACCENT = '#A0826D'        # Primary accent (Victorian brown)
-COLOR_ACCENT_LIGHT = '#B89A7D'  # Lighter accent for hover states
-COLOR_ACCENT_DARK = '#8B6F5C'   # Darker accent for pressed states
+# === Accent Colors (Teal/Cyan) ===
+COLOR_ACCENT = '#2F9BC1'        # Primary accent (teal)
+COLOR_ACCENT_LIGHT = '#5AC2E0'  # Hover state
+COLOR_ACCENT_DARK = '#1F6F8F'   # Pressed state
 
 # === Status Colors ===
-COLOR_INFO = '#9A9593'          # Information messages (neutral gray)
-COLOR_SUCCESS = '#7A9A6F'       # Success messages (muted green)
-COLOR_WARN = '#C9A56D'          # Warning messages (golden brown)
-COLOR_ERROR = '#B86A60'         # Error messages (muted red)
+COLOR_INFO = '#9BB3C5'          # Information messages (blue-gray)
+COLOR_SUCCESS = '#66C2A3'       # Success (teal-green)
+COLOR_WARN = '#E0B860'          # Warning (muted amber)
+COLOR_ERROR = '#E27A7A'         # Error (soft red)
 
 # === Special Theme Colors ===
-# Bronze/brown accents for Sherlock Holmes Victorian theme
-COLOR_BRONZE = '#A0826D'        # Bronze accent (main theme)
-COLOR_GOLD = '#C9A56D'          # Gold accent for special elements
-COLOR_DEERSTALKER = '#8B7355'   # Deerstalker brown (decorative)
+COLOR_BRONZE = '#2F9BC1'        # Alias to accent in this palette
+COLOR_GOLD = '#E0B860'          # Warm highlight contrasting the blues
+COLOR_DEERSTALKER = '#1F6F8F'   # Deep teal accent
 
 # === Border & Divider Colors ===
-COLOR_BORDER = '#2E2E2E'        # Default border
-COLOR_BORDER_LIGHT = '#3E3E3E'  # Lighter border for emphasis
-COLOR_DIVIDER = '#2A2A2A'       # Subtle divider
+COLOR_BORDER = '#1C3040'        # Default border
+COLOR_BORDER_LIGHT = '#274658'  # Lighter border for emphasis
+COLOR_DIVIDER = '#1A2E3D'       # Subtle divider
 
 # === Shadow & Overlay ===
-COLOR_SHADOW = '#000000'        # Pure black for shadows (with alpha)
-COLOR_OVERLAY = '#1A1A1A'       # Overlay background (with alpha)
+COLOR_SHADOW = '#000000'        # Black for shadows
+COLOR_OVERLAY = '#0F1F2A'       # Overlay background
 
 # === Progress & Loading ===
-COLOR_PROGRESS_BG = '#2E2E2E'   # Progress bar background
-COLOR_PROGRESS_FG = '#A0826D'   # Progress bar fill (Victorian brown)
+COLOR_PROGRESS_BG = '#183447'   # Progress bar background
+COLOR_PROGRESS_FG = '#2F9BC1'   # Progress bar fill (teal)
 
 # === Semantic Aliases for Easy Use ===
 COLOR_PRIMARY = COLOR_ACCENT
