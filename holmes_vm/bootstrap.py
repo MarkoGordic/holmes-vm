@@ -16,7 +16,7 @@ import ctypes
 from pathlib import Path
 
 
-# ANSI color codes for terminal styling
+# ANSI color codes for terminal styling (with ability to disable on unsupported consoles)
 class Colors:
     BROWN = '\033[38;5;138m'     # Victorian brown
     GOLD = '\033[38;5;179m'      # Golden brown
@@ -27,19 +27,87 @@ class Colors:
     DIM = '\033[2m'
     RESET = '\033[0m'
 
+    @classmethod
+    def disable(cls):
+        cls.BROWN = ''
+        cls.GOLD = ''
+        cls.GREEN = ''
+        cls.RED = ''
+        cls.GRAY = ''
+        cls.BOLD = ''
+        cls.DIM = ''
+        cls.RESET = ''
 
-# Sherlock Holmes banner
-BANNER = f"""{Colors.BROWN}{Colors.BOLD}
-╔══════════════════════════════════════════════════════════════════════════╗
-║                                                                          ║
-║   🔍 SHERLOCK HOLMES • DIGITAL FORENSICS VM BOOTSTRAP                   ║
-║                                                                          ║
-║      "It is a capital mistake to theorize before one has data."         ║
-║                                          - A Scandal in Bohemia          ║
-║                                                                          ║
-╚══════════════════════════════════════════════════════════════════════════╝
-{Colors.RESET}
-"""
+
+def _hex_to_ansi_fg(hex_code: str) -> str:
+    """Convert #RRGGBB to ANSI 24-bit foreground escape sequence."""
+    hex_code = hex_code.lstrip('#')
+    if len(hex_code) != 6:
+        return ''
+    r = int(hex_code[0:2], 16)
+    g = int(hex_code[2:4], 16)
+    b = int(hex_code[4:6], 16)
+    return f"\033[38;2;{r};{g};{b}m"
+
+
+def _apply_ui_palette():
+    """Map UI hex colors to ANSI sequences for console output."""
+    try:
+        from holmes_vm.ui import colors as ui
+        Colors.BROWN = _hex_to_ansi_fg(ui.COLOR_ACCENT)       # Accent teal
+        Colors.GOLD = _hex_to_ansi_fg(ui.COLOR_WARN)          # Muted amber
+        Colors.GREEN = _hex_to_ansi_fg(ui.COLOR_SUCCESS)      # Success teal-green
+        Colors.RED = _hex_to_ansi_fg(ui.COLOR_ERROR)          # Soft red
+        Colors.GRAY = _hex_to_ansi_fg(ui.COLOR_MUTED)         # Blue-gray
+        Colors.BOLD = '\033[1m'
+        Colors.DIM = '\033[2m'
+        Colors.RESET = '\033[0m'
+    except Exception:
+        # If palette import fails, keep existing defaults (or disabled state)
+        pass
+
+
+def get_banner() -> str:
+    """Build the banner string using current Colors (allows disabling later)."""
+    return (
+        f"{Colors.BROWN}{Colors.BOLD}\n"
+        "╔══════════════════════════════════════════════════════════════════════════╗\n"
+        "║                                                                          ║\n"
+        "║   🔍 SHERLOCK HOLMES • DIGITAL FORENSICS VM BOOTSTRAP                   ║\n"
+        "║                                                                          ║\n"
+        "║      \"It is a capital mistake to theorize before one has data.\"         ║\n"
+        "║                                          - A Scandal in Bohemia          ║\n"
+        "║                                                                          ║\n"
+        "╚══════════════════════════════════════════════════════════════════════════╝\n"
+        f"{Colors.RESET}\n"
+    )
+
+def _try_enable_ansi_on_windows() -> bool:
+    """Attempt to enable ANSI escape processing on Windows consoles.
+
+    Returns True if either not on Windows or enabling succeeded.
+    """
+    try:
+        if os.name != 'nt':
+            return True
+        # Windows 10+ can support VT with this flag
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        STD_OUTPUT_HANDLE = -11
+        STD_ERROR_HANDLE = -12
+
+        for handle in (STD_OUTPUT_HANDLE, STD_ERROR_HANDLE):
+            h = kernel32.GetStdHandle(handle)
+            if h == 0 or h == -1:
+                continue
+            mode = ctypes.c_uint32()
+            if not kernel32.GetConsoleMode(h, ctypes.byref(mode)):
+                continue
+            new_mode = mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING
+            kernel32.SetConsoleMode(h, new_mode)
+        return True
+    except Exception:
+        return False
 
 def is_admin():
     """Check if running with administrator privileges"""
@@ -160,26 +228,29 @@ def install_dependencies():
 def verify_installation():
     """Verify the installation is ready"""
     print_step(5, 5, "Verifying installation")
-    
-    # Check if setup.py exists
-    setup_path = Path(__file__).parent / 'setup.py'
+
+    pkg_dir = Path(__file__).resolve().parent
+    repo_root = pkg_dir.parent
+
+    # Check if setup.py exists (module file inside package)
+    setup_path = pkg_dir / 'setup.py'
     if not setup_path.exists():
-        print_error("setup.py not found")
-        print_info("Make sure you're in the holmes-vm directory")
+        print_error("holmes_vm/setup.py not found")
+        print_info("Ensure you cloned the repository correctly")
         return False
-    
-    # Check if config exists
-    config_path = Path(__file__).parent / 'config' / 'tools.json'
+
+    # Check if config exists at repo root
+    config_path = repo_root / 'config' / 'tools.json'
     if not config_path.exists():
-        print_error("config/tools.json not found")
+        print_error("config/tools.json not found at repository root")
         return False
-    
-    # Check if PowerShell module exists (new path)
-    module_path = Path(__file__).parent / 'scripts' / 'windows' / 'Holmes.Common.psm1'
+
+    # Check if PowerShell module exists under scripts/windows at repo root
+    module_path = repo_root / 'scripts' / 'windows' / 'Holmes.Common.psm1'
     if not module_path.exists():
-        print_error("scripts/windows/Holmes.Common.psm1 not found")
+        print_error("scripts/windows/Holmes.Common.psm1 not found at repository root")
         return False
-    
+
     print_success("Installation verified")
     print_success("All required files are present")
     return True
@@ -201,8 +272,15 @@ def check_admin_rights():
 
 def main():
     """Main bootstrap function"""
+    # Configure color support: try to enable ANSI on Windows; if it fails, strip colors
+    ansi_ok = _try_enable_ansi_on_windows()
+    if sys.stdout.isatty() and ansi_ok:
+        _apply_ui_palette()
+    else:
+        Colors.disable()
+
     # Print banner
-    print(BANNER)
+    print(get_banner())
     
     print_header("Holmes VM Bootstrap Script")
     print(f"{Colors.DIM}This script prepares your system to run Holmes VM setup.")
