@@ -16,6 +16,9 @@ except ImportError:
     CTK_AVAILABLE = False
     ctk = None
 
+# Add tkinter for Canvas
+import tkinter as tk
+
 from .colors import *
 
 
@@ -49,6 +52,9 @@ class ModernUI:
         self._spin_job = None
         self._progress_target = 0.0
         self._progress_job = None
+        # Timeline state
+        self._timeline_steps: List[Dict[str, Any]] = []  # {'idx': int, 'icon': CTkLabel}
+        self._timeline_col = 0
         
         self._setup_ui()
         self._start_background_tasks()
@@ -151,10 +157,31 @@ class ModernUI:
             text_color=COLOR_ACCENT_LIGHT
         )
         self.progress_label.grid(row=2, column=0, columnspan=3)
+
+        # === Timeline Section ===
+        timeline_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG, height=140)
+        timeline_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(6, 0))
+        timeline_frame.grid_columnconfigure(0, weight=1)
+        timeline_frame.grid_rowconfigure(0, weight=1)
+        
+        # Scrollable timeline (horizontal) using tkinter.Canvas (no visible scrollbar)
+        self.timeline_canvas = tk.Canvas(timeline_frame, height=130, bg=COLOR_BG, highlightthickness=0, bd=0)
+        self.timeline_canvas.grid(row=0, column=0, sticky='nsew')
+        self.timeline_inner = ctk.CTkFrame(self.timeline_canvas, fg_color='transparent')
+        self.timeline_canvas.create_window((0, 0), window=self.timeline_inner, anchor='nw')
+        self.timeline_inner.bind('<Configure>', lambda e: self.timeline_canvas.configure(scrollregion=self.timeline_canvas.bbox('all')))
+        # Gesture-based horizontal scroll (wheel + drag)
+        self.timeline_canvas.bind('<Enter>', lambda e: self._bind_timeline_scroll())
+        self.timeline_canvas.bind('<Leave>', lambda e: self._unbind_timeline_scroll())
+        self.timeline_canvas.bind('<ButtonPress-1>', self._timeline_drag_start)
+        self.timeline_canvas.bind('<B1-Motion>', self._timeline_drag_move)
+        self._drag_last_x = None
+        self._timeline_col = 0
+        self._timeline_steps = []
         
         # === Log Section with Scrollable Frame ===
         log_container = ctk.CTkFrame(main_frame, fg_color=COLOR_BG)
-        log_container.grid(row=2, column=0, sticky="nsew", padx=20, pady=(10, 10))
+        log_container.grid(row=3, column=0, sticky="nsew", padx=20, pady=(10, 10))
         log_container.grid_columnconfigure(0, weight=1)
         log_container.grid_rowconfigure(1, weight=1)
         
@@ -218,7 +245,7 @@ class ModernUI:
         
         # === Footer ===
         footer_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_SECONDARY, height=70)
-        footer_frame.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
+        footer_frame.grid(row=4, column=0, sticky="ew", padx=0, pady=0)
         footer_frame.grid_columnconfigure(0, weight=1)
         
         # Time info
@@ -241,7 +268,7 @@ class ModernUI:
             height=35,
             fg_color=COLOR_BG_TERTIARY,
             hover_color=COLOR_MUTED_DARK,
-            text_color=COLOR_WARN,
+            text_color=COLOR_FG_BRIGHT,
             font=("Segoe UI", 11, "bold"),
             state="disabled"
         )
@@ -278,21 +305,15 @@ class ModernUI:
             return
         
         self.log_textbox.configure(state="normal")
-        
-        # Color-code based on level
-        color_map = {
-            'info': COLOR_INFO,
-            'warn': COLOR_WARN,
-            'error': COLOR_ERROR,
-            'success': COLOR_SUCCESS,
-            'verbose': COLOR_MUTED_DARK
-        }
-        
-        color = color_map.get(level, COLOR_FG)
-        
-        # Insert with color (CustomTkinter doesn't support tags like regular Text widget)
-        # So we just insert normally - the monospace font helps readability
-        self.log_textbox.insert("end", line)
+        # Add light prefix icons for readability
+        prefix = {
+            'info': '→ ',
+            'warn': '⚠ ',
+            'error': '✗ ',
+            'success': '✓ ',
+            'verbose': '… '
+        }.get(level, '')
+        self.log_textbox.insert("end", prefix + line)
         self.log_textbox.see("end")
         self.log_textbox.configure(state="disabled")
     
@@ -387,6 +408,49 @@ class ModernUI:
                 toast.destroy()
         
         fade_in()
+
+    # Timeline helpers
+    def _add_timeline_step(self, idx: int, name: str):
+        item = ctk.CTkFrame(self.timeline_inner, fg_color="transparent")
+        item.grid(row=0, column=self._timeline_col, padx=10, pady=6, sticky='n')
+        self._timeline_col += 1
+        icon = ctk.CTkLabel(item, text='⏳', text_color=COLOR_ACCENT_LIGHT, font=("Segoe UI", 14, "bold"))
+        icon.pack()
+        label = ctk.CTkLabel(item, text=self._trim_name(name), text_color=COLOR_MUTED, font=("Segoe UI", 10), wraplength=150, justify='center')
+        label.pack(pady=(2, 8))
+        self._timeline_steps.append({'idx': idx, 'icon': icon})
+        # Auto-scroll to newest step
+        self.root.after(50, self._scroll_timeline_to_end)
+
+    def _scroll_timeline_to_end(self):
+        try:
+            self.timeline_canvas.xview_moveto(1.0)
+        except Exception:
+            pass
+
+    def _trim_name(self, name: str, max_len: int = 28) -> str:
+        return name if len(name) <= max_len else name[:max_len-1] + '…'
+
+    def _mark_timeline_step(self, idx: int, success: bool):
+        for st in self._timeline_steps:
+            if st['idx'] == idx:
+                icon_widget = st['icon']
+                final_color = COLOR_SUCCESS if success else COLOR_ERROR
+                final_icon = '✓' if success else '✗'
+                self._animate_icon_transition(icon_widget, final_icon, final_color)
+                if not success:
+                    self._show_toast(f"Step {idx} failed")
+                break
+
+    def _animate_icon_transition(self, widget, final_text: str, final_color: str, steps: int = 6, delay: int = 40):
+        def _step(n=0):
+            if n >= steps:
+                widget.configure(text=final_text, text_color=final_color)
+                return
+            color = COLOR_ACCENT_LIGHT if n % 2 == 0 else COLOR_ACCENT_DARK
+            widget.configure(text_color=color)
+            self.root.after(delay, lambda: _step(n + 1))
+        _step()
     
     def enable_close(self):
         """Enable close button and show completion"""
@@ -413,7 +477,6 @@ class ModernUI:
     
     def set_stop_enabled(self, enabled: bool):
         """Enable/disable stop button"""
-        # Use proper Python ternary expression
         self.stop_button.configure(state=("normal" if enabled else "disabled"))
     
     def _process_queue(self):
@@ -443,6 +506,10 @@ class ModernUI:
                     _, idx, total, name = item
                     self.step_label.configure(text=f"Step {idx}/{total}")
                     self.substatus_label.configure(text=name)
+                    self._add_timeline_step(idx, name)
+                elif kind == 'step_result':
+                    _, idx, success = item
+                    self._mark_timeline_step(idx, success)
         except queue.Empty:
             pass
         
@@ -656,7 +723,7 @@ class ModernUI:
         footer.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
         footer.grid_columnconfigure(1, weight=1)
         
-        # Left controls
+        # Left controls (always organize desktop; removed toggle option)
         left_buttons = ctk.CTkFrame(footer, fg_color="transparent")
         left_buttons.grid(row=0, column=0, sticky="w", padx=20, pady=20)
         
@@ -670,26 +737,15 @@ class ModernUI:
         
         ctk.CTkButton(
             left_buttons, text="☑ Select All", command=select_all,
-            fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
-            text_color=COLOR_INFO, width=120, height=35
+            fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
+            text_color=COLOR_FG_BRIGHT, width=120, height=35
         ).pack(side="left", padx=(0, 10))
         
         ctk.CTkButton(
             left_buttons, text="☐ Deselect All", command=deselect_all,
-            fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
-            text_color=COLOR_WARN, width=120, height=35
+            fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
+            text_color=COLOR_FG_BRIGHT, width=120, height=35
         ).pack(side="left", padx=(0, 15))
-        
-        # Ensure desktop organization toggle
-        organize_var = ctk.BooleanVar(value=True)
-        org_chk = ctk.CTkCheckBox(
-            left_buttons,
-            text="Organize Desktop into Folders",
-            variable=organize_var,
-            fg_color=COLOR_ACCENT,
-            text_color=COLOR_FG
-        )
-        org_chk.pack(side="left")
         
         # Right buttons
         right_buttons = ctk.CTkFrame(footer, fg_color="transparent")
@@ -700,8 +756,6 @@ class ModernUI:
             self.root.destroy()
         
         def start():
-            if 'desktop_grouping' in vars_map:
-                vars_map['desktop_grouping'].set(bool(organize_var.get()))
             selected = [k for k, v in vars_map.items() if v.get()]
             dialog.destroy()
             on_start(selected)
@@ -728,6 +782,39 @@ class ModernUI:
                 else:
                     frame.grid_remove()
         search_var.trace_add('write', on_search)
+
+
+    def _bind_timeline_scroll(self):
+        # Mouse wheel (Windows/Mac) and Linux scroll events
+        self.root.bind_all('<MouseWheel>', self._timeline_scroll_wheel)
+        self.root.bind_all('<Shift-MouseWheel>', self._timeline_scroll_wheel)
+        self.root.bind_all('<Button-4>', lambda e: self.timeline_canvas.xview_scroll(-3, 'units'))
+        self.root.bind_all('<Button-5>', lambda e: self.timeline_canvas.xview_scroll(3, 'units'))
+
+    def _unbind_timeline_scroll(self):
+        self.root.unbind_all('<MouseWheel>')
+        self.root.unbind_all('<Shift-MouseWheel>')
+        self.root.unbind_all('<Button-4>')
+        self.root.unbind_all('<Button-5>')
+
+    def _timeline_scroll_wheel(self, event):
+        # Normalize delta; horizontal scroll if Shift held or always for this canvas
+        delta = event.delta
+        if delta == 0:
+            return
+        direction = -1 if delta > 0 else 1
+        self.timeline_canvas.xview_scroll(direction * 3, 'units')
+
+    def _timeline_drag_start(self, event):
+        self._drag_last_x = event.x
+
+    def _timeline_drag_move(self, event):
+        if self._drag_last_x is None:
+            return
+        dx = self._drag_last_x - event.x
+        if dx != 0:
+            self.timeline_canvas.xview_scroll(int(dx / 10), 'units')
+            self._drag_last_x = event.x
 
 
 def is_ctk_available() -> bool:

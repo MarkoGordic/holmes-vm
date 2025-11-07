@@ -25,15 +25,22 @@ from .colors import *
 
 # Sherlock Holmes themed banner for GUI
 HOLMES_ASCII_SMALL = """
-╔═══════════════════════════════════════════════════════════════════════╗
-║   🔍 SHERLOCK HOLMES • DIGITAL FORENSICS VM SETUP                     ║
-║      "Elementary, my dear Watson" • The Game is Afoot                 ║
-╚═══════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+║   🔍 SHERLOCK HOLMES • DIGITAL FORENSICS VM SETUP                                                     ║
+║      "Elementary, my dear Watson" • The Game is Afoot                                                 ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
 """
 
-
 class UI:
-    """Main UI window for Holmes VM setup with enhanced Sherlock Holmes theme"""
+    """Main UI window for Holmes VM setup with enhanced Sherlock Holmes theme
+
+    Enhancements added:
+    - Animated progress easing
+    - Step timeline panel with per-step success/failure icons
+    - Smooth fade-in for log lines (simulated via color cycling)
+    - Toast notifications for completion and errors
+    - Better button hover and disabled state styling
+    """
     
     def __init__(self, title: str):
         if not TK_AVAILABLE:
@@ -176,6 +183,21 @@ class UI:
             fg=COLOR_ACCENT_LIGHT, bg=COLOR_BG, font=self.header_font
         )
         self.progress_pct_lbl.pack()
+
+        # === Timeline Section ===
+        timeline_frame = tk.Frame(self.root, bg=COLOR_BG, height=110)
+        timeline_frame.pack(fill='x', padx=25, pady=(5, 0))
+        timeline_frame.pack_propagate(False)
+        self.timeline_canvas = tk.Canvas(timeline_frame, height=100, bg=COLOR_BG, highlightthickness=0)
+        self.timeline_canvas.pack(fill='both', expand=True)
+        self.timeline_items_frame = tk.Frame(self.timeline_canvas, bg=COLOR_BG)
+        self.timeline_canvas.create_window((0, 0), window=self.timeline_items_frame, anchor='nw')
+        self.timeline_items_frame.bind('<Configure>', lambda e: self.timeline_canvas.configure(scrollregion=self.timeline_canvas.bbox('all')))
+
+        # Scrollbar if overflow (horizontal)
+        self.timeline_hsb = tk.Scrollbar(timeline_frame, orient='horizontal', command=self.timeline_canvas.xview)
+        self.timeline_canvas.configure(xscrollcommand=self.timeline_hsb.set)
+        self.timeline_hsb.pack(fill='x', side='bottom')
 
         # === Log Section ===
         log_frame = tk.Frame(self.root, bg=COLOR_BG)
@@ -344,9 +366,18 @@ class UI:
             self.log_box.configure(state='disabled')
             
         self.log_box.configure(state='normal')
+        # Fade-in simulation: temporarily insert with muted color then recolor after delay
         tag = level if level in ('info', 'warn', 'error', 'success', 'verbose') else 'info'
-        self.log_box.insert('end', line, tag)
+        fade_tag = f"fade_{self._log_line_count}_{tag}"
+        self.log_box.tag_config(fade_tag, foreground=COLOR_MUTED_DARK)
+        self.log_box.insert('end', line, fade_tag)
         self.log_box.see('end')
+        def _recolor(tag_original=fade_tag, final_tag=tag):
+            try:
+                self.log_box.tag_config(tag_original, foreground=self.log_box.tag_cget(final_tag, 'foreground'))
+            except Exception:
+                pass
+        self.root.after(250, _recolor)
         self.log_box.configure(state='disabled')
 
     def set_status(self, text: str):
@@ -388,11 +419,96 @@ class UI:
         self.set_progress(nxt)
         self._anim_job = self.root.after(10, self._animate_step)
 
+    def _add_timeline_step(self, idx: int, name: str):
+        """Add a visual element for a new step to the timeline."""
+        row = tk.Frame(self.timeline_items_frame, bg=COLOR_BG, padx=8, pady=4)
+        row.pack(side='left')
+        icon_lbl = tk.Label(row, text='⏳', fg=COLOR_ACCENT_LIGHT, bg=COLOR_BG, font=self.body_font)
+        icon_lbl.pack(side='top')
+        name_lbl = tk.Label(row, text=self._trim_name(name), fg=COLOR_MUTED, bg=COLOR_BG, font=self.small_font, wraplength=120, justify='center')
+        name_lbl.pack(side='top', pady=(2, 0))
+        self._timeline_steps.append({'idx': idx, 'name': name, 'status': 'pending', 'widget': icon_lbl})
+        # Auto-scroll to end
+        self.root.after(50, lambda: self.timeline_canvas.xview_moveto(1.0))
+
+    def _trim_name(self, name: str, max_len: int = 28) -> str:
+        return name if len(name) <= max_len else name[:max_len-1] + '…'
+
+    def _mark_timeline_step(self, idx: int, success: bool):
+        """Update timeline icon for a step result with animation fade."""
+        for step in self._timeline_steps:
+            if step['idx'] == idx:
+                step['status'] = 'ok' if success else 'fail'
+                widget = step['widget']
+                target_color = COLOR_SUCCESS if success else COLOR_ERROR
+                target_icon = '✓' if success else '✗'
+                # Fade animation using incremental color adjustments
+                self._animate_icon_transition(widget, target_icon, target_color)
+                if not success:
+                    self._show_toast(f"Step {idx} failed", error=True)
+                break
+
+    def _animate_icon_transition(self, widget, final_text: str, final_color: str, steps: int = 6, delay: int = 40):
+        """Animate icon from spinner to final state by pulsing color."""
+        def _step(n=0):
+            if n >= steps:
+                widget.configure(text=final_text, fg=final_color)
+                return
+            # Alternate color between accent light/dark for pulse
+            color = COLOR_ACCENT_LIGHT if n % 2 == 0 else COLOR_ACCENT_DARK
+            widget.configure(fg=color)
+            self.root.after(delay, lambda: _step(n + 1))
+        _step()
+
+    def _show_toast(self, message: str, duration_ms: int = 3000, error: bool = False):
+        """Show a toast notification (floating, fades)."""
+        toast = tk.Toplevel(self.root)
+        toast.overrideredirect(True)
+        bg = COLOR_BG_SECONDARY if not error else COLOR_ERROR
+        fg = COLOR_FG_BRIGHT if not error else COLOR_BG
+        frame = tk.Frame(toast, bg=bg)
+        frame.pack(fill='both', expand=True)
+        lbl = tk.Label(frame, text=message, bg=bg, fg=fg, font=self.body_font, padx=16, pady=10)
+        lbl.pack()
+        self.root.update_idletasks()
+        x = self.root.winfo_rootx() + self.root.winfo_width() - toast.winfo_reqwidth() - 28
+        y = self.root.winfo_rooty() + self.root.winfo_height() - toast.winfo_reqheight() - 80
+        toast.geometry(f"+{x}+{y}")
+        try:
+            toast.attributes('-alpha', 0.0)
+        except Exception:
+            pass
+        self._toast_windows.append(toast)
+        def fade_in(step=0):
+            try:
+                alpha = min(1.0, step / 10.0)
+                toast.attributes('-alpha', alpha)
+            except Exception:
+                pass
+            if step < 10:
+                toast.after(25, lambda: fade_in(step + 1))
+            else:
+                toast.after(duration_ms, fade_out)
+        def fade_out(step=10):
+            try:
+                alpha = max(0.0, step / 10.0)
+                toast.attributes('-alpha', alpha)
+            except Exception:
+                pass
+            if step > 0:
+                toast.after(25, lambda: fade_out(step - 1))
+            else:
+                if toast in self._toast_windows:
+                    self._toast_windows.remove(toast)
+                toast.destroy()
+        fade_in()
+
     def enable_close(self):
         """Enable close button and disable stop button"""
         self.close_btn.configure(state='normal')
         self.stop_btn.configure(state='disabled')
         self.spinner_lbl.configure(text='✓')  # Checkmark when done
+        self._show_toast('Investigation complete ✓')
 
     def set_stop_callback(self, cb: Callable):
         """Set callback for stop button"""
@@ -435,6 +551,10 @@ class UI:
                     _, idx, total, name = item
                     self.step_lbl.configure(text=f"Step {idx}/{total}")
                     self.substatus_lbl.configure(text=name)
+                    self._add_timeline_step(idx, name)
+                elif kind == 'step_result':
+                    _, idx, success = item
+                    self._mark_timeline_step(idx, success)
         except queue.Empty:
             pass
             

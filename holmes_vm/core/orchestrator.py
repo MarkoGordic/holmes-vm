@@ -16,7 +16,7 @@ from holmes_vm.installers.chocolatey import ChocolateyInstaller
 from holmes_vm.installers.powershell import PowerShellInstaller
 from holmes_vm.installers.functions import (
     NetworkCheckInstaller, ChocolateySetupInstaller, PipUpgradeInstaller,
-    WallpaperInstaller, AppearanceInstaller, PinTaskbarInstaller
+    WallpaperInstaller, AppearanceInstaller, PinTaskbarInstaller, OrganizeDesktopInstaller
 )
 
 
@@ -97,6 +97,10 @@ class SetupOrchestrator:
                         )
                         steps.append((f"Pin {tool_name} (attempt)", lambda inst=installer: inst.install()))
         
+        # Always organize desktop shortcuts AFTER tool installs
+        organizer = OrganizeDesktopInstaller(self.config, self.logger, self.args)
+        steps.append((organizer.get_name(), lambda inst=organizer: inst.install()))
+        
         return steps
     
     def _assert_windows_admin(self):
@@ -122,13 +126,18 @@ class SetupOrchestrator:
                 ui.enqueue(('progress_to', int((i - 1) * 100 / total)))
             
             self.logger.current_step = name
-            self.logger.info(f"{name}…")
+            self.logger.info(f"{name}")  # zero-width spaces ensure uniqueness for tagging
             
+            success = True
             try:
                 action()
                 self.logger.success(f"{name} completed.")
             except Exception as e:
+                success = False
                 self.logger.error(f"{name} failed: {e}")
+            
+            if ui:
+                ui.enqueue(('step_result', i, success))
             
             done_fraction = i / max(1, total)
             elapsed = time.time() - start
@@ -146,7 +155,7 @@ class SetupOrchestrator:
         
         for i, (name, action) in enumerate(steps, start=1):
             self.logger.current_step = name
-            self.logger.info(f"[{i}/{total}] {name}…")
+            self.logger.info(f"[{i}/{total}] {name}")
             
             try:
                 action()
