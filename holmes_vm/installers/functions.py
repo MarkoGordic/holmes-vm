@@ -8,7 +8,7 @@ import os
 import sys
 import shutil
 import subprocess
-from typing import Optional
+from typing import Optional, List, Dict, Tuple
 from holmes_vm.installers.base import BaseInstaller, register_installer
 from holmes_vm.utils.system import run_powershell, import_common_module_and
 
@@ -188,3 +188,150 @@ class PinTaskbarInstaller(BaseInstaller):
         else:
             self.logger.warn(f'Failed to pin {self.tool_name}.')
             return False
+
+
+@register_installer('organize_desktop')
+class OrganizeDesktopInstaller(BaseInstaller):
+    """Organize Desktop shortcuts into folders per category"""
+
+    def get_name(self) -> str:
+        return "Organize Desktop shortcuts"
+
+    def _get_desktop_path(self) -> str:
+        # Prefer USERPROFILE\\Desktop
+        userprofile = os.environ.get('USERPROFILE') or os.path.expanduser('~')
+        return os.path.join(userprofile, 'Desktop')
+
+    def _collect_items(self) -> List[Tuple[str, Dict[str, str]]]:
+        """Return list of (group_name, item_dict) that have desktop_group"""
+        pairs: List[Tuple[str, Dict[str, str]]] = []
+        for cat in self.config.get_categories():
+            for item in cat.get('items', []):
+                group = item.get('desktop_group')
+                if group:
+                    pairs.append((group, item))
+        return pairs
+
+    def _derive_tokens(self, item: Dict[str, str]) -> List[str]:
+        # Prefer explicit keywords
+        keywords = item.get('desktop_keywords') or []
+        if keywords:
+            return [k.lower() for k in keywords if isinstance(k, str) and k]
+        # Derive from name: strip parentheses and split
+        import re
+        name = (item.get('name') or '').lower()
+        name = re.sub(r"\([^)]*\)", "", name)  # remove (...) parts
+        parts = re.split(r"[^a-z0-9]+", name)
+        tokens = [p for p in parts if len(p) >= 3]
+        # Also include id
+        iid = (item.get('id') or '').lower()
+        if iid:
+            tokens.append(iid)
+        # De-duplicate while preserving order
+        seen = set()
+        out: List[str] = []
+        for t in tokens:
+            if t and t not in seen:
+                seen.add(t)
+                out.append(t)
+        return out
+
+    def _safe_move(self, src: str, dst_dir: str) -> Optional[str]:
+        try:
+            os.makedirs(dst_dir, exist_ok=True)
+            base = os.path.basename(src)
+            dst = os.path.join(dst_dir, base)
+            # Avoid overwrite
+            if os.path.exists(dst):
+                name, ext = os.path.splitext(base)
+                i = 2
+                while True:
+                    cand = os.path.join(dst_dir, f"{name} ({i}){ext}")
+                    if not os.path.exists(cand):
+                        dst = cand
+                        break
+                    i += 1
+            if self.is_what_if_mode():
+                self.logger.info(f"[what-if] Move '{src}' -> '{dst}'\n")
+                return dst
+            shutil.move(src, dst)
+            return dst
+        except Exception as e:
+            self.logger.warn(f"Failed to move '{src}' to '{dst_dir}': {e}")
+            return None
+
+    def install(self) -> bool:
+        desktop = self._get_desktop_path()
+        if not os.path.isdir(desktop):
+            self.logger.warn('Desktop path not found; skipping organization.')
+            return False
+
+        pairs = self._collect_items()
+        if not pairs:
+            self.logger.info('No desktop grouping metadata present; nothing to organize.')
+            return True
+
+        # Current desktop entries
+        try:
+            entries = [os.path.join(desktop, e) for e in os.listdir(desktop)]
+        except Exception as e:
+            self.logger.warn(f'Cannot enumerate Desktop: {e}')
+            return False
+
+        moved_any = False
+        desktop_dirs = [p for p in entries if os.path.isdir(p)]
+
+        # Move folders whose names match tokens (contains), but skip target group folders
+        for group, item in pairs:
+            group_dir = os.path.join(desktop, group)
+            tokens = self._derive_tokens(item)
+            os.makedirs(group_dir, exist_ok=True)
+            for d in list(desktop_dirs):
+                if os.path.normcase(d) == os.path.normcase(group_dir):
+                    continue  # do not move the target folder itself
+                base = os.path.basename(d).lower()
+                if any(tok in base for tok in tokens):
+                    # Only move if folder currently sits directly on Desktop
+                    if os.path.dirname(d) == desktop:
+                        target = os.path.join(group_dir, os.path.basename(d))
+                        try:
+                            if self.is_what_if_mode():
+                                self.logger.info(f"[what-if] Move folder '{d}' -> '{target}'\n")
+                            else:
+                                shutil.move(d, target)
+                            moved_any = True
+                            # Update lists to avoid repeated moves
+                            entries = [os.path.join(desktop, e) for e in os.listdir(desktop)]
+                            desktop_dirs = [p for p in entries if os.path.isdir(p)]
+                        except Exception as e:
+                            self.logger.warn(f"Failed moving folder '{d}': {e}")
+
+        # Refresh file list for shortcuts
+        try:
+            entries = [os.path.join(desktop, e) for e in os.listdir(desktop)]
+        except Exception:
+            pass
+
+        # Move shortcuts (.lnk, .url) whose names contain tokens
+        for group, item in pairs:
+            group_dir = os.path.join(desktop, group)
+            tokens = self._derive_tokens(item)
+            for path in list(entries):
+                lower = path.lower()
+                if not (lower.endswith('.lnk') or lower.endswith('.url')):
+                    continue
+                base = os.path.basename(lower)
+                if any(tok in base for tok in tokens):
+                    dst = self._safe_move(path, group_dir)
+                    if dst:
+                        moved_any = True
+                        try:
+                            entries.remove(path)
+                        except ValueError:
+                            pass
+
+        if moved_any:
+            self.logger.success('Desktop shortcuts organized into folders.')
+        else:
+            self.logger.info('No desktop items matched for organization.')
+        return True

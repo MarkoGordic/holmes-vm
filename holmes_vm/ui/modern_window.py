@@ -43,6 +43,12 @@ class ModernUI:
         self._last_eta = '—'
         self._filters = {'info': True, 'warn': True, 'error': True, 'success': True, 'verbose': False}
         self._is_complete = False
+        # Animation state
+        self._spinner_frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
+        self._spinner_index = 0
+        self._spin_job = None
+        self._progress_target = 0.0
+        self._progress_job = None
         
         self._setup_ui()
         self._start_background_tasks()
@@ -91,12 +97,16 @@ class ModernUI:
         # === Progress Section ===
         progress_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG, height=140)
         progress_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(10, 0))
-        progress_frame.grid_columnconfigure(0, weight=1)
+        progress_frame.grid_columnconfigure(0, weight=0)
+        progress_frame.grid_columnconfigure(1, weight=0)
+        progress_frame.grid_columnconfigure(2, weight=1)
         
         # Step info
         step_frame = ctk.CTkFrame(progress_frame, fg_color="transparent")
         step_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        step_frame.grid_columnconfigure(1, weight=1)
+        step_frame.grid_columnconfigure(0, weight=0)
+        step_frame.grid_columnconfigure(1, weight=0)
+        step_frame.grid_columnconfigure(2, weight=1)
         
         self.step_label = ctk.CTkLabel(
             step_frame,
@@ -104,7 +114,16 @@ class ModernUI:
             font=("Segoe UI", 16, "bold"),
             text_color=COLOR_ACCENT
         )
-        self.step_label.grid(row=0, column=0, sticky="w", padx=(0, 15))
+        self.step_label.grid(row=0, column=0, sticky="w", padx=(0, 10))
+        
+        # Animated spinner next to step
+        self.spinner_label = ctk.CTkLabel(
+            step_frame,
+            text=self._spinner_frames[0],
+            font=("Segoe UI", 16, "bold"),
+            text_color=COLOR_ACCENT_LIGHT
+        )
+        self.spinner_label.grid(row=0, column=1, sticky="w")
         
         self.substatus_label = ctk.CTkLabel(
             step_frame,
@@ -112,7 +131,7 @@ class ModernUI:
             font=("Segoe UI", 12),
             text_color=COLOR_FG
         )
-        self.substatus_label.grid(row=0, column=1, sticky="w")
+        self.substatus_label.grid(row=0, column=2, sticky="w")
         
         # Progress bar (modern, deterministic)
         self.progress_bar = ctk.CTkProgressBar(
@@ -121,7 +140,7 @@ class ModernUI:
             progress_color=COLOR_ACCENT,
             fg_color=COLOR_BG_TERTIARY
         )
-        self.progress_bar.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        self.progress_bar.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 10))
         self.progress_bar.set(0)
         
         # Progress percentage
@@ -131,7 +150,7 @@ class ModernUI:
             font=("Segoe UI", 14, "bold"),
             text_color=COLOR_ACCENT_LIGHT
         )
-        self.progress_label.grid(row=2, column=0)
+        self.progress_label.grid(row=2, column=0, columnspan=3)
         
         # === Log Section with Scrollable Frame ===
         log_container = ctk.CTkFrame(main_frame, fg_color=COLOR_BG)
@@ -246,6 +265,8 @@ class ModernUI:
         """Start background update tasks"""
         self.root.after(100, self._process_queue)
         self.root.after(500, self._tick_time)
+        # Start spinner and subtle progress animation loop
+        self.root.after(120, self._spin)
     
     def enqueue(self, item: tuple):
         """Add item to processing queue"""
@@ -286,8 +307,86 @@ class ModernUI:
         self.progress_label.configure(text=f"{int(value)}%")
     
     def animate_progress_to(self, target: float):
-        """Animate progress to target (for now, just set it)"""
-        self.set_progress(target)
+        """Animate progress to target smoothly"""
+        try:
+            self._progress_target = max(0.0, min(100.0, float(target)))
+            if self._progress_job is None:
+                self._progress_job = self.root.after(10, self._progress_step)
+        except Exception:
+            self.set_progress(target)
+    
+    def _progress_step(self):
+        current = float(self.progress_bar._determinate_value) * 100.0  # internal value in [0..1]
+        diff = self._progress_target - current
+        if abs(diff) < 0.5:
+            self.set_progress(self._progress_target)
+            self._progress_job = None
+            return
+        # Easing: move 15% towards target per tick, min step 0.5
+        step = max(0.5, abs(diff) * 0.15)
+        next_val = current + step if diff > 0 else current - step
+        self.set_progress(next_val)
+        self._progress_job = self.root.after(16, self._progress_step)
+    
+    def _spin(self):
+        """Update spinner animation and pulse status color subtly"""
+        try:
+            self._spinner_index = (self._spinner_index + 1) % len(self._spinner_frames)
+            self.spinner_label.configure(text=self._spinner_frames[self._spinner_index])
+            # Subtle pulse by toggling between two accent tones
+            if self._spinner_index % 2 == 0:
+                self.status_label.configure(text_color=COLOR_ACCENT)
+            else:
+                self.status_label.configure(text_color=COLOR_ACCENT_LIGHT)
+        finally:
+            self._spin_job = self.root.after(100, self._spin)
+    
+    def _show_toast(self, message: str, duration_ms: int = 2500):
+        """Show a lightweight toast notification bottom-right"""
+        toast = ctk.CTkToplevel(self.root)
+        toast.overrideredirect(True)
+        toast.configure(fg_color=COLOR_BG_SECONDARY)
+        lbl = ctk.CTkLabel(toast, text=message, font=("Segoe UI", 11, "bold"), text_color=COLOR_FG_BRIGHT)
+        lbl.pack(padx=16, pady=10)
+        # Position bottom-right relative to root
+        self.root.update_idletasks()
+        rx = self.root.winfo_rootx()
+        ry = self.root.winfo_rooty()
+        rw = self.root.winfo_width()
+        rh = self.root.winfo_height()
+        tw = toast.winfo_reqwidth()
+        th = toast.winfo_reqheight()
+        x = rx + rw - tw - 24
+        y = ry + rh - th - 24
+        toast.geometry(f"+{x}+{y}")
+        try:
+            toast.attributes('-alpha', 0.0)
+        except Exception:
+            pass
+        
+        def fade_in(step=0):
+            try:
+                alpha = min(1.0, 0.1 * step)
+                toast.attributes('-alpha', alpha)
+            except Exception:
+                pass
+            if alpha < 1.0:
+                toast.after(30, lambda: fade_in(step + 1))
+            else:
+                toast.after(duration_ms, fade_out)
+        
+        def fade_out(step=10):
+            try:
+                alpha = max(0.0, 0.1 * step)
+                toast.attributes('-alpha', alpha)
+            except Exception:
+                pass
+            if alpha > 0.0:
+                toast.after(30, lambda: fade_out(step - 1))
+            else:
+                toast.destroy()
+        
+        fade_in()
     
     def enable_close(self):
         """Enable close button and show completion"""
@@ -299,6 +398,8 @@ class ModernUI:
             text_color=COLOR_SUCCESS
         )
         self.progress_bar.configure(progress_color=COLOR_SUCCESS)
+        # Toast notification
+        self._show_toast("Installation complete")
     
     def set_stop_callback(self, cb: Callable):
         """Set callback for stop button"""
@@ -386,21 +487,22 @@ class ModernUI:
         self.root.mainloop()
     
     def show_selection(self, registry: List[Dict[str, Any]], on_start: Callable, preselected_ids: Optional[List[str]] = None):
-        """Show component selection dialog"""
+        """Show component selection dialog with animations and search"""
         dialog = ctk.CTkToplevel(self.root)
         dialog.title("Select Tools")
-        dialog.geometry("900x700")
+        dialog.geometry("950x740")
         dialog.transient(self.root)
         dialog.grab_set()
         
         # Configure grid
         dialog.grid_columnconfigure(0, weight=1)
-        dialog.grid_rowconfigure(1, weight=1)
+        dialog.grid_rowconfigure(2, weight=1)
         
         # Header
-        header = ctk.CTkFrame(dialog, fg_color=COLOR_BG_SECONDARY, height=100)
+        header = ctk.CTkFrame(dialog, fg_color=COLOR_BG_SECONDARY, height=120)
         header.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
         header.grid_columnconfigure(0, weight=1)
+        header.grid_columnconfigure(1, weight=0)
         
         title = ctk.CTkLabel(
             header,
@@ -408,7 +510,7 @@ class ModernUI:
             font=("Segoe UI", 20, "bold"),
             text_color=COLOR_ACCENT_LIGHT
         )
-        title.grid(row=0, column=0, pady=(20, 5))
+        title.grid(row=0, column=0, sticky='w', padx=20, pady=(20, 5))
         
         subtitle = ctk.CTkLabel(
             header,
@@ -416,7 +518,12 @@ class ModernUI:
             font=("Segoe UI", 11),
             text_color=COLOR_MUTED
         )
-        subtitle.grid(row=1, column=0, pady=(0, 15))
+        subtitle.grid(row=1, column=0, sticky='w', padx=20, pady=(0, 10))
+        
+        # Search bar
+        search_var = ctk.StringVar(value="")
+        search_entry = ctk.CTkEntry(header, placeholder_text="Search tools…", textvariable=search_var, width=260)
+        search_entry.grid(row=0, column=1, rowspan=2, sticky='e', padx=20)
         
         # Scrollable frame for selection
         scroll_frame = ctk.CTkScrollableFrame(
@@ -425,40 +532,57 @@ class ModernUI:
             label_text="",
             label_fg_color=COLOR_BG
         )
-        scroll_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(10, 10))
+        scroll_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(10, 10))
         scroll_frame.grid_columnconfigure(0, weight=1)
         
         # Build selection UI
-        vars_map = {}
+        vars_map: Dict[str, Any] = {}
+        cat_to_items: Dict[str, List[str]] = {}
+        item_rows: List[tuple] = []  # (frame, searchable_text)
+        
         for cat_idx, cat in enumerate(registry):
-            # Category header
+            # Category header with expand/collapse
             cat_frame = ctk.CTkFrame(scroll_frame, fg_color=COLOR_BG_SECONDARY)
             cat_frame.grid(row=cat_idx*2, column=0, sticky="ew", pady=(10, 5), padx=5)
-            cat_frame.grid_columnconfigure(0, weight=1)
+            cat_frame.grid_columnconfigure(0, weight=0)
+            cat_frame.grid_columnconfigure(1, weight=1)
+            cat_frame.grid_columnconfigure(2, weight=0)
             
+            # Toggle button
+            expanded = {'val': True}
+            toggle_btn = ctk.CTkButton(
+                cat_frame, text="▾", width=28, height=28,
+                fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
+                text_color=COLOR_FG
+            )
+            toggle_btn.grid(row=0, column=0, padx=(10, 8), pady=10)
+            
+            count = len(cat.get('items', []))
             cat_label = ctk.CTkLabel(
                 cat_frame,
-                text=cat['name'],
+                text=f"{cat['name']} ({count})",
                 font=("Segoe UI", 14, "bold"),
                 text_color=COLOR_FG_BRIGHT,
                 anchor="w"
             )
-            cat_label.grid(row=0, column=0, sticky="w", padx=15, pady=(10, 5))
+            cat_label.grid(row=0, column=1, sticky="w", pady=10)
             
-            if cat.get('description'):
-                desc_label = ctk.CTkLabel(
-                    cat_frame,
-                    text=cat['description'],
-                    font=("Segoe UI", 10),
-                    text_color=COLOR_MUTED,
-                    anchor="w"
-                )
-                desc_label.grid(row=1, column=0, sticky="w", padx=15, pady=(0, 10))
+            # Category actions (select/deselect all)
+            actions_frame = ctk.CTkFrame(cat_frame, fg_color="transparent")
+            actions_frame.grid(row=0, column=2, sticky="e", padx=10)
             
-            # Items
+            def make_cat_toggle(ids: List[str], value: bool):
+                def _toggle():
+                    for _id in ids:
+                        if _id in vars_map:
+                            vars_map[_id].set(value)
+                return _toggle
+            
+            cat_to_items[cat.get('id', f'cat_{cat_idx}')] = []
+            
             items_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
             items_frame.grid(row=cat_idx*2+1, column=0, sticky="ew", padx=10, pady=(0, 5))
-            items_frame.grid_columnconfigure(0, weight=1)
+            items_frame.grid_columnconfigure(1, weight=1)
             
             for item_idx, item in enumerate(cat['items']):
                 default_selected = (
@@ -469,6 +593,7 @@ class ModernUI:
                 
                 var = ctk.BooleanVar(value=default_selected)
                 vars_map[item['id']] = var
+                cat_to_items[cat.get('id', f'cat_{cat_idx}')].append(item['id'])
                 
                 item_frame = ctk.CTkFrame(items_frame, fg_color="transparent")
                 item_frame.grid(row=item_idx, column=0, sticky="ew", pady=3)
@@ -484,22 +609,54 @@ class ModernUI:
                 )
                 cb.grid(row=0, column=0, sticky="w", padx=10)
                 
+                meta_texts: List[str] = []
                 if item.get('description'):
+                    meta_texts.append(f"• {item['description']}")
+                if item.get('desktop_group'):
+                    meta_texts.append(f"📁 Desktop: {item['desktop_group']}")
+                if meta_texts:
                     desc = ctk.CTkLabel(
                         item_frame,
-                        text=f"• {item['description']}",
+                        text="  ".join(meta_texts),
                         font=("Segoe UI", 9),
                         text_color=COLOR_MUTED,
                         anchor="w"
                     )
                     desc.grid(row=0, column=1, sticky="w", padx=15)
+                
+                searchable = (item.get('name','') + ' ' + item.get('description','')).lower()
+                item_rows.append((item_frame, searchable))
+            
+            ids = cat_to_items[cat.get('id', f'cat_{cat_idx}')]
+            ctk.CTkButton(
+                actions_frame, text="Select Category",
+                command=make_cat_toggle(ids, True),
+                fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
+                text_color=COLOR_INFO, width=120, height=28
+            ).grid(row=0, column=0, padx=(0, 6))
+            ctk.CTkButton(
+                actions_frame, text="Deselect",
+                command=make_cat_toggle(ids, False),
+                fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
+                text_color=COLOR_WARN, width=90, height=28
+            ).grid(row=0, column=1)
+            
+            def toggle_items(frame=items_frame, btn=toggle_btn, state=expanded):
+                state['val'] = not state['val']
+                if state['val']:
+                    btn.configure(text='▾')
+                    frame.grid()
+                else:
+                    btn.configure(text='▸')
+                    frame.grid_remove()
+            toggle_btn.configure(command=toggle_items)
         
-        # Footer with buttons
+        # Footer
         footer = ctk.CTkFrame(dialog, fg_color=COLOR_BG_SECONDARY, height=80)
-        footer.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
+        footer.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
         footer.grid_columnconfigure(1, weight=1)
         
-        # Left buttons
+        # Left controls
         left_buttons = ctk.CTkFrame(footer, fg_color="transparent")
         left_buttons.grid(row=0, column=0, sticky="w", padx=20, pady=20)
         
@@ -521,7 +678,18 @@ class ModernUI:
             left_buttons, text="☐ Deselect All", command=deselect_all,
             fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
             text_color=COLOR_WARN, width=120, height=35
-        ).pack(side="left")
+        ).pack(side="left", padx=(0, 15))
+        
+        # Ensure desktop organization toggle
+        organize_var = ctk.BooleanVar(value=True)
+        org_chk = ctk.CTkCheckBox(
+            left_buttons,
+            text="Organize Desktop into Folders",
+            variable=organize_var,
+            fg_color=COLOR_ACCENT,
+            text_color=COLOR_FG
+        )
+        org_chk.pack(side="left")
         
         # Right buttons
         right_buttons = ctk.CTkFrame(footer, fg_color="transparent")
@@ -532,6 +700,8 @@ class ModernUI:
             self.root.destroy()
         
         def start():
+            if 'desktop_grouping' in vars_map:
+                vars_map['desktop_grouping'].set(bool(organize_var.get()))
             selected = [k for k, v in vars_map.items() if v.get()]
             dialog.destroy()
             on_start(selected)
@@ -548,6 +718,16 @@ class ModernUI:
             text_color=COLOR_FG_BRIGHT, font=("Segoe UI", 12, "bold"),
             width=180, height=35
         ).pack(side="left")
+        
+        # Search filter behavior
+        def on_search(*_):
+            q = (search_var.get() or '').lower().strip()
+            for frame, text in item_rows:
+                if not q or q in text:
+                    frame.grid()
+                else:
+                    frame.grid_remove()
+        search_var.trace_add('write', on_search)
 
 
 def is_ctk_available() -> bool:

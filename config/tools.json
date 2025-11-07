@@ -37,80 +37,15 @@
       ]
     },
     {
-      "id": "applications",
-      "name": "Applications",
-      "description": "Analysis tools and utilities.",
+      "id": "editors",
+      "name": "Editors & Data",
+      "description": "General editing and data viewing tools.",
       "items": [
-        {
-          "id": "cffexplorer",
-          "name": "CFF Explorer (Explorer Suite)",
-          "description": "PE editor and analysis tool",
-          "default": true,
-          "installer_type": "powershell",
-          "script_path": "scripts/windows/install-cff-explorer.ps1",
-          "function_name": "Install-CFFExplorer"
-        },
-        {
-          "id": "apatedns",
-          "name": "ApateDNS",
-          "description": "Simulated DNS service for malware analysis",
-          "default": true,
-          "installer_type": "powershell",
-          "script_path": "scripts/windows/install-apatedns.ps1",
-          "function_name": "Install-ApateDNS"
-        },
-        {
-          "id": "wireshark",
-          "name": "Wireshark",
-          "description": "Network protocol analyzer",
-          "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "wireshark"
-        },
-        {
-          "id": "dotnet",
-          "name": ".NET 6 Desktop Runtime",
-          "description": "Required for many Windows forensic tools",
-          "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "dotnet-6.0-desktopruntime"
-        },
-        {
-          "id": "dotnet9",
-          "name": ".NET 9 Desktop Runtime",
-          "description": "Required for newer EZ Tools (net9)",
-          "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "dotnet-9.0-desktopruntime"
-        },
-        {
-          "id": "dnspyex",
-          "name": "DnSpyEx",
-          "description": ".NET debugger and assembly editor",
-          "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "dnspyex"
-        },
-        {
-          "id": "pestudio",
-          "name": "PeStudio",
-          "description": "Malware initial assessment tool",
-          "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "pestudio"
-        },
-        {
-          "id": "winprefetchview",
-          "name": "WinPrefetchView",
-          "description": "NirSoft Prefetch viewer",
-          "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "winprefetchview"
-        },
         {
           "id": "vscode",
           "name": "Visual Studio Code",
           "description": "Modern code editor",
+          "desktop_group": "Editors",
           "default": true,
           "installer_type": "chocolatey",
           "package_name": "vscode",
@@ -125,6 +60,7 @@
           "id": "sqlitebrowser",
           "name": "DB Browser for SQLite",
           "description": "SQLite database browser",
+          "desktop_group": "Editors",
           "default": true,
           "installer_type": "chocolatey",
           "package_name": "sqlitebrowser",
@@ -137,24 +73,119 @@
               ]
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": "reverse",
+      "name": "Reverse Engineering",
+      "description": "Tools for binary and .NET analysis.",
+      "items": [
+        {
+          "id": "dnspyex",
+          "name": "DnSpyEx",
+          "description": ".NET debugger and assembly editor",
+          "desktop_group": "Reverse Engineering",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dnspyex"
+        },
+        {
+          "id": "cffexplorer",
+          "name": "CFF Explorer (Explorer Suite)",
+          "description": "PE editor and analysis tool",
+          "desktop_group": "Reverse Engineering",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-cff-explorer.ps1",
+          "function_name": "Install-CFFExplorer"
+        }
+      ]
+    },
+    {
+      "id": "malware_static",
+      "name": "Malware Static Analysis",
+      "description": "Initial triage and PE inspection tools.",
+      "items": [
+        {
+          "id": "pestudio",
+          "name": "PeStudio",
+          "description": "Malware initial assessment tool",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "pestudio"
+        }
+      ]
+    },
+    {
+      "id": "network_forensics",
+      "name": "Network Forensics",
+      "description": "Network capture and log analysis tools.",
+      "items": [
+        {
+          "id": "wireshark",
+          "name": "Wireshark",
+          "description": "Network protocol analyzer",
+          "desktop_group": "Network Forensics",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "wireshark"
+        },
+        {
+          "id": "networkminer",
+          "name": "NetworkMiner",
+          "description": "Network forensics analysis tool",
+          "desktop_group": "Network Forensics",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-networkminer.ps1",
+          "function_name": "Install-NetworkMiner"
         },
         {
           "id": "zui",
           "name": "Brimdata Zui",
           "description": "GUI for Zeek/Suricata logs",
+          "desktop_group": "Network Forensics",
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-zui.ps1",
           "function_name": "Install-Zui"
         },
         {
-          "id": "networkminer",
-          "name": "NetworkMiner",
-          "description": "Network forensics analysis tool",
+          "id": "apatedns",
+          "name": "ApateDNS",
+          "description": "Simulated DNS service for malware analysis",
+          "desktop_group": "Network Forensics",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "scripts/windows/install-networkminer.ps1",
-          "function_name": "Install-NetworkMiner"
+          "script_path": "scripts/windows/install-apatedns.ps1",
+          "function_name": "Install-ApateDNS"
+        }
+      ]
+    },
+    {
+      "id": "runtimes",
+      "name": "Runtime Dependencies",
+      "description": "Framework runtimes required by tooling.",
+      "items": [
+        {
+          "id": "dotnet",
+          "name": ".NET 6 Desktop Runtime",
+          "description": "Required for many Windows forensic tools",
+          "desktop_group": "Runtimes",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-6.0-desktopruntime"
+        },
+        {
+          "id": "dotnet9",
+          "name": ".NET 9 Desktop Runtime",
+          "description": "Required for newer EZ Tools (net9)",
+          "desktop_group": "Runtimes",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-9.0-desktopruntime"
         }
       ]
     },
@@ -167,6 +198,7 @@
           "id": "sysinternals",
           "name": "Sysinternals Suite",
           "description": "Microsoft Sysinternals tools",
+          "desktop_group": "Bundles",
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-sysinternals.ps1",
@@ -176,6 +208,7 @@
           "id": "eztools",
           "name": "Eric Zimmerman Tools (EZ Tools)",
           "description": "Comprehensive forensics toolkit",
+          "desktop_group": "Bundles",
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-eztools.ps1",
@@ -201,6 +234,7 @@
           "id": "regripper",
           "name": "RegRipper",
           "description": "Windows Registry forensics tool",
+          "desktop_group": "Bundles",
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-regripper.ps1",
@@ -210,6 +244,7 @@
           "id": "chainsaw",
           "name": "Chainsaw",
           "description": "Rapidly search and hunt through Windows event logs",
+          "desktop_group": "Bundles",
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-chainsaw.ps1",
@@ -237,6 +272,14 @@
           "default": true,
           "installer_type": "function",
           "installer": "set_appearance"
+        },
+        {
+          "id": "desktop_grouping",
+          "name": "Organize Desktop Shortcuts",
+          "description": "Group application shortcuts into category folders on Desktop",
+          "default": true,
+          "installer_type": "function",
+          "installer": "organize_desktop"
         }
       ]
     }
