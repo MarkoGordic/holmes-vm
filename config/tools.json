@@ -124,6 +124,38 @@
               "C:\\Tools\\CFFExplorer"
             ]
           }
+        },
+        {
+          "id": "ilspy",
+          "name": "ILSpy",
+          "description": ".NET decompiler",
+          "desktop_group": "Reverse Engineering",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-ilspy.ps1",
+          "function_name": "Install-ILSpy",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "ILSpy",
+            "exe_name": "ILSpy.exe",
+            "search_roots": ["C:\\Tools\\ILSpy"]
+          }
+        },
+        {
+          "id": "ghidra",
+          "name": "Ghidra",
+          "description": "Software reverse engineering suite",
+          "desktop_group": "Reverse Engineering",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-ghidra.ps1",
+          "function_name": "Install-Ghidra",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Ghidra",
+            "exe_name": "ghidraRun.bat",
+            "search_roots": ["C:\\Tools\\Ghidra"]
+          }
         }
       ]
     },
@@ -327,6 +359,22 @@
             "display_name": "Chainsaw",
             "exe_name": "chainsaw.exe",
             "search_roots": ["C:\\Tools\\Chainsaw"]
+          }
+        },
+        {
+          "id": "nirsoft_browser",
+          "name": "NirSoft Web Browser Tools",
+          "description": "Collection of browser history, cache, cookie and credential viewers",
+          "desktop_group": "Bundles",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-nirsoft-browser-tools.ps1",
+          "function_name": "Install-NirSoftBrowserTools",
+          "shortcut": {
+            "mode": "folder_all",
+            "display_name": "NirSoft Browser Tools",
+            "folders": ["C:\\Tools\\NirSoftBrowserTools"],
+            "filter": "*.exe"
           }
         }
       ]
