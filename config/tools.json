@@ -49,12 +49,14 @@
           "default": true,
           "installer_type": "chocolatey",
           "package_name": "vscode",
-          "post_install": [
-            {
-              "type": "pin_taskbar",
-              "path": "C:\\Program Files\\Microsoft VS Code\\Code.exe"
-            }
-          ]
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Visual Studio Code",
+            "exe_candidates": [
+              "C:\\Program Files\\Microsoft VS Code\\Code.exe",
+              "C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe"
+            ]
+          }
         },
         {
           "id": "sqlitebrowser",
@@ -64,15 +66,16 @@
           "default": true,
           "installer_type": "chocolatey",
           "package_name": "sqlitebrowser",
-          "post_install": [
-            {
-              "type": "pin_taskbar_multi",
-              "paths": [
-                "C:\\Program Files\\DB Browser for SQLite\\DB Browser for SQLite.exe",
-                "C:\\Program Files (x86)\\DB Browser for SQLite\\DB Browser for SQLite.exe"
-              ]
-            }
-          ]
+          "install_args": "/VERYSILENT /NORESTART",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "DB Browser for SQLite",
+            "exe_name": "DB Browser for SQLite.exe",
+            "search_roots": [
+              "C:\\Program Files\\DB Browser for SQLite",
+              "C:\\Program Files (x86)\\DB Browser for SQLite"
+            ]
+          }
         }
       ]
     },
@@ -88,7 +91,18 @@
           "desktop_group": "Reverse Engineering",
           "default": true,
           "installer_type": "chocolatey",
-          "package_name": "dnspyex"
+          "package_name": "dnspyex",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "dnSpyEx",
+            "exe_name": "dnSpy.exe",
+            "search_roots": [
+              "C:\\ProgramData\\chocolatey\\lib\\dnspyex",
+              "C:\\Program Files\\dnSpyEx",
+              "C:\\Program Files (x86)\\dnSpyEx",
+              "C:\\Tools\\dnSpyEx"
+            ]
+          }
         },
         {
           "id": "cffexplorer",
@@ -98,7 +112,18 @@
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-cff-explorer.ps1",
-          "function_name": "Install-CFFExplorer"
+          "function_name": "Install-CFFExplorer",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "CFF Explorer",
+            "exe_name": "CFF Explorer.exe",
+            "search_roots": [
+              "C:\\Program Files (x86)\\Explorer Suite",
+              "C:\\Program Files\\Explorer Suite",
+              "C:\\ProgramData\\chocolatey\\lib\\explorersuite",
+              "C:\\Tools\\CFFExplorer"
+            ]
+          }
         }
       ]
     },
@@ -114,7 +139,22 @@
           "desktop_group": "Malware Analysis",
           "default": true,
           "installer_type": "chocolatey",
-          "package_name": "pestudio"
+          "package_name": "pestudio",
+          "suppress_default_args": true,
+          "install_args": "/quiet /norestart",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "pestudio",
+            "exe_name": "pestudio.exe",
+            "search_roots": [
+              "C:\\Program Files\\pestudio",
+              "C:\\Program Files (x86)\\pestudio",
+              "C:\\ProgramData\\chocolatey\\lib\\pestudio",
+              "C:\\ProgramData\\chocolatey\\lib\\pestudio\\tools",
+              "C:\\ProgramData\\chocolatey\\bin",
+              "C:\\Tools\\pestudio"
+            ]
+          }
         }
       ]
     },
@@ -130,7 +170,15 @@
           "desktop_group": "Network Forensics",
           "default": true,
           "installer_type": "chocolatey",
-          "package_name": "wireshark"
+          "package_name": "wireshark",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Wireshark",
+            "exe_candidates": [
+              "C:\\Program Files\\Wireshark\\Wireshark.exe",
+              "C:\\Program Files (x86)\\Wireshark\\Wireshark.exe"
+            ]
+          }
         },
         {
           "id": "networkminer",
@@ -140,7 +188,13 @@
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-networkminer.ps1",
-          "function_name": "Install-NetworkMiner"
+          "function_name": "Install-NetworkMiner",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "NetworkMiner",
+            "exe_name": "NetworkMiner.exe",
+            "search_roots": ["C:\\Tools\\NetworkMiner"]
+          }
         },
         {
           "id": "zui",
@@ -150,7 +204,19 @@
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-zui.ps1",
-          "function_name": "Install-Zui"
+          "function_name": "Install-Zui",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Zui",
+            "exe_candidates": [
+              "${LOCALAPPDATA}\\Programs\\Zui\\Zui.exe",
+              "${LOCALAPPDATA}\\Programs\\zui\\Zui.exe",
+              "C:\\Program Files\\Zui\\Zui.exe",
+              "C:\\Program Files (x86)\\Zui\\Zui.exe",
+              "C:\\Program Files\\Brimdata\\Zui\\Zui.exe",
+              "C:\\Program Files (x86)\\Brimdata\\Zui\\Zui.exe"
+            ]
+          }
         },
         {
           "id": "apatedns",
@@ -160,7 +226,13 @@
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-apatedns.ps1",
-          "function_name": "Install-ApateDNS"
+          "function_name": "Install-ApateDNS",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "ApateDNS",
+            "exe_name": "ApateDNS.exe",
+            "search_roots": ["C:\\Tools\\ApateDNS"]
+          }
         }
       ]
     },
@@ -173,7 +245,6 @@
           "id": "dotnet",
           "name": ".NET 6 Desktop Runtime",
           "description": "Required for many Windows forensic tools",
-          "desktop_group": "Runtimes",
           "default": true,
           "installer_type": "chocolatey",
           "package_name": "dotnet-6.0-desktopruntime"
@@ -182,7 +253,6 @@
           "id": "dotnet9",
           "name": ".NET 9 Desktop Runtime",
           "description": "Required for newer EZ Tools (net9)",
-          "desktop_group": "Runtimes",
           "default": true,
           "installer_type": "chocolatey",
           "package_name": "dotnet-9.0-desktopruntime"
@@ -202,7 +272,13 @@
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-sysinternals.ps1",
-          "function_name": "Install-Sysinternals"
+          "function_name": "Install-Sysinternals",
+          "shortcut": {
+            "mode": "folder_all",
+            "display_name": "Sysinternals",
+            "folders": ["C:\\Tools\\SysinternalsSuite"],
+            "filter": "*.exe"
+          }
         },
         {
           "id": "eztools",
@@ -213,22 +289,13 @@
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-eztools.ps1",
           "function_name": "Install-EZTools",
-          "post_install": [
-            {
-              "type": "pin_taskbar_multi",
-              "paths": [
-                "C:\\Tools\\EricZimmermanTools\\net9\\MFTExplorer.exe",
-                "C:\\Tools\\EricZimmermanTools\\net6\\MFTExplorer.exe"
-              ]
-            },
-            {
-              "type": "pin_taskbar_multi",
-              "paths": [
-                "C:\\Tools\\EricZimmermanTools\\net9\\TimelineExplorer.exe",
-                "C:\\Tools\\EricZimmermanTools\\net6\\TimelineExplorer.exe"
-              ]
-            }
-          ]
+          "shortcut": {
+            "mode": "eztools",
+            "display_name": "EZTools",
+            "root": "C:\\Tools\\EricZimmermanTools",
+            "order": ["net9", "net6", "net4"],
+            "filter": "*.exe"
+          }
         },
         {
           "id": "regripper",
@@ -238,7 +305,13 @@
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-regripper.ps1",
-          "function_name": "Install-RegRipper"
+          "function_name": "Install-RegRipper",
+          "shortcut": {
+            "mode": "folder_all",
+            "display_name": "RegRipper",
+            "folders": ["C:\\Tools\\RegRipper4.0"],
+            "filter": "*.exe"
+          }
         },
         {
           "id": "chainsaw",
@@ -248,7 +321,13 @@
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-chainsaw.ps1",
-          "function_name": "Install-Chainsaw"
+          "function_name": "Install-Chainsaw",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Chainsaw",
+            "exe_name": "chainsaw.exe",
+            "search_roots": ["C:\\Tools\\Chainsaw"]
+          }
         }
       ]
     },

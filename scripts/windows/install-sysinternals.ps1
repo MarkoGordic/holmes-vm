@@ -23,7 +23,9 @@ try {
 function Install-Sysinternals {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [string]$Destination = 'C:\\Tools\\SysinternalsSuite'
+        [string]$Destination = 'C:\\Tools\\SysinternalsSuite',
+        [string]$ShortcutCategory,
+        [switch]$SkipShortcuts
     )
 
     Write-Log -Level Info -Message 'Installing Microsoft Sysinternals Suite...'
@@ -31,7 +33,8 @@ function Install-Sysinternals {
 
     $installDir = $Destination
     $zipPath = Join-Path $env:TEMP 'SysinternalsSuite.zip'
-    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'Sysinternals'
+    $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+    $desktopShortcutDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktopRoot $ShortcutCategory } else { Join-Path $desktopRoot 'Sysinternals' }
 
     # Prepare
     if (Get-Command Ensure-Directory -ErrorAction SilentlyContinue) {
@@ -95,25 +98,27 @@ function Install-Sysinternals {
         Write-Log -Level Warn -Message "Failed to add PATH: $($_.Exception.Message)"
     }
 
-    # Create shortcuts for all EXE tools
-    try {
-        if (Get-Command New-ShortcutsFromFolder -ErrorAction SilentlyContinue) {
-            New-ShortcutsFromFolder -Folder $installDir -Filter '*.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $installDir
-        } else {
-            $shell = New-Object -ComObject WScript.Shell
-            Get-ChildItem -Path $installDir -Filter '*.exe' -File | ForEach-Object {
-                $lnk = Join-Path $desktopShortcutDir ("$($_.Name).lnk")
-                $sc = $shell.CreateShortcut($lnk)
-                $sc.TargetPath = $_.FullName
-                $sc.WorkingDirectory = $_.Directory.FullName
-                $sc.WindowStyle = 1
-                $sc.Description = $_.BaseName
-                $sc.Save()
+    # Create shortcuts for all EXE tools only if not skipped
+    if (-not $SkipShortcuts) {
+        try {
+            if (Get-Command New-ShortcutsFromFolder -ErrorAction SilentlyContinue) {
+                New-ShortcutsFromFolder -Folder $installDir -Filter '*.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $installDir
+            } else {
+                $shell = New-Object -ComObject WScript.Shell
+                Get-ChildItem -Path $installDir -Filter '*.exe' -File | ForEach-Object {
+                    $lnk = Join-Path $desktopShortcutDir ("$($_.Name).lnk")
+                    $sc = $shell.CreateShortcut($lnk)
+                    $sc.TargetPath = $_.FullName
+                    $sc.WorkingDirectory = $_.Directory.FullName
+                    $sc.WindowStyle = 1
+                    $sc.Description = $_.BaseName
+                    $sc.Save()
+                }
             }
+            Write-Log -Level Success -Message "Desktop shortcuts created under $desktopShortcutDir."
+        } catch {
+            Write-Log -Level Warn -Message "Failed to create some shortcuts: $($_.Exception.Message)"
         }
-        Write-Log -Level Success -Message 'Desktop shortcuts created under Desktop\\Sysinternals.'
-    } catch {
-        Write-Log -Level Warn -Message "Failed to create some shortcuts: $($_.Exception.Message)"
     }
 
     Write-Log -Level Success -Message 'Sysinternals Suite installation completed.'

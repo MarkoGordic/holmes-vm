@@ -162,6 +162,12 @@ function Install-ChocoPackage {
     $args = @('install', $Name, '-y', '--no-progress')
     if ($Version) { $args += @('--version', $Version) }
     if ($ForceReinstall) { $args += '--force' }
+    
+    # Prevent desktop shortcuts and auto-run for packages that support it
+    # VS Code, DB Browser for SQLite, and many other packages respect these arguments
+    $args += '--install-arguments'
+    $args += '/VERYSILENT /NORESTART /MERGETASKS="!desktopicon,!quicklaunchicon,!runcode"'
+    
     if ($PSCmdlet.ShouldProcess($Name, 'choco install')) {
         & choco @args | Out-Null
         # 0 = success, 3010 = success with reboot required

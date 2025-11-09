@@ -13,6 +13,49 @@ from holmes_vm.installers.base import BaseInstaller, register_installer
 from holmes_vm.utils.system import run_powershell, import_common_module_and
 
 
+@register_installer('prepare_desktop_groups')
+class PrepareDesktopGroupsInstaller(BaseInstaller):
+    """Create category desktop group folders at start so shortcuts land directly there."""
+
+    def get_name(self) -> str:
+        return "Prepare Desktop category folders"
+
+    def _get_desktop_path(self) -> str:
+        userprofile = os.environ.get('USERPROFILE') or os.path.expanduser('~')
+        return os.path.join(userprofile, 'Desktop')
+
+    def install(self) -> bool:
+        desktop = self._get_desktop_path()
+        if not os.path.isdir(desktop):
+            self.logger.warn('Desktop path not found; skipping desktop group preparation.')
+            return False
+        groups: List[str] = []
+        for cat in self.config.get_categories():
+            for item in cat.get('items', []):
+                g = item.get('desktop_group')
+                if g and g not in groups:
+                    groups.append(g)
+        if not groups:
+            self.logger.info('No desktop groups defined in config; nothing to prepare.')
+            return True
+        created = 0
+        for g in groups:
+            path = os.path.join(desktop, g)
+            try:
+                if self.is_what_if_mode():
+                    self.logger.info(f"[what-if] Create folder '{path}'")
+                else:
+                    os.makedirs(path, exist_ok=True)
+                created += 1
+            except Exception as e:
+                self.logger.warn(f"Failed to create '{path}': {e}")
+        if created:
+            self.logger.success(f"Prepared {created} desktop group folder(s).")
+        else:
+            self.logger.info('No new desktop group folders created.')
+        return True
+
+
 @register_installer('network_check')
 class NetworkCheckInstaller(BaseInstaller):
     """Network connectivity check"""
@@ -335,3 +378,187 @@ class OrganizeDesktopInstaller(BaseInstaller):
         else:
             self.logger.info('No desktop items matched for organization.')
         return True
+
+
+@register_installer('create_shortcut')
+class CreateShortcutInstaller(BaseInstaller):
+    """Create shortcut for a single tool immediately after installation.
+    This runs after each tool is installed, not at the end.
+    """
+
+    def __init__(self, config, logger, args, tool_id: str):
+        super().__init__(config, logger, args)
+        self.tool_id = tool_id
+
+    def get_name(self) -> str:
+        tool_config = self.config.get_tool_by_id(self.tool_id)
+        tool_name = tool_config.get('name') if tool_config else self.tool_id
+        return f"Create shortcut for {tool_name}"
+
+    def _desktop(self) -> str:
+        return os.path.join(os.environ.get('USERPROFILE') or os.path.expanduser('~'), 'Desktop')
+
+    def _ensure_dir(self, path: str):
+        if self.is_what_if_mode():
+            self.logger.info(f"[what-if] mkdir {path}")
+            return
+        os.makedirs(path, exist_ok=True)
+
+    def _ps_create_shortcut(self, target: str, shortcut_dir: str, name: Optional[str] = None, working_dir: Optional[str] = None) -> bool:
+        base = name or os.path.splitext(os.path.basename(target))[0]
+        lnk = os.path.join(shortcut_dir, f"{base}.lnk")
+        wd = working_dir or os.path.dirname(target)
+        
+        # Escape single quotes in paths for PowerShell
+        target_escaped = target.replace("'", "''")
+        lnk_escaped = lnk.replace("'", "''")
+        wd_escaped = wd.replace("'", "''")
+        base_escaped = base.replace("'", "''")
+        
+        code = import_common_module_and(
+            f"$shell=New-Object -ComObject WScript.Shell; $lnk='{lnk_escaped}'; $sc=$shell.CreateShortcut($lnk); $sc.TargetPath='{target_escaped}'; $sc.WorkingDirectory='{wd_escaped}'; $sc.WindowStyle=1; $sc.Description='{base_escaped}'; $sc.Save()",
+            self.config.module_path
+        )
+        if self.is_what_if_mode():
+            self.logger.info(f"[what-if] shortcut -> {lnk} -> {target}")
+            return True
+        res = run_powershell(code)
+        ok = res.returncode == 0
+        if ok:
+            self.logger.success(f"Shortcut created: {os.path.basename(lnk)}")
+        else:
+            self.logger.warn(f"Failed to create shortcut for {target}: {res.stderr.strip()}")
+        return ok
+
+    def _ps_shortcuts_from_folder(self, folder: str, dest: str, filter_pat: str = '*.exe') -> bool:
+        # Escape single quotes for PowerShell
+        folder_escaped = folder.replace("'", "''")
+        dest_escaped = dest.replace("'", "''")
+        filter_escaped = filter_pat.replace("'", "''")
+        
+        code = import_common_module_and(
+            f"New-ShortcutsFromFolder -Folder '{folder_escaped}' -Filter '{filter_escaped}' -ShortcutDir '{dest_escaped}' -WorkingDir '{folder_escaped}'",
+            self.config.module_path
+        )
+        if self.is_what_if_mode():
+            self.logger.info(f"[what-if] shortcuts from {folder} -> {dest} ({filter_pat})")
+            return True
+        res = run_powershell(code)
+        ok = res.returncode == 0
+        if ok:
+            self.logger.success(f"Shortcuts created from {os.path.basename(folder)}")
+        else:
+            self.logger.warn(f"Failed creating shortcuts from {folder}: {res.stderr.strip()}")
+        return ok
+
+    def install(self) -> bool:
+        tool_config = self.config.get_tool_by_id(self.tool_id)
+        if not tool_config:
+            self.logger.warn(f"Tool config not found for {self.tool_id}")
+            return False
+        
+        desktop_group = tool_config.get('desktop_group')
+        # Skip shortcut creation entirely for Runtime Dependencies category items
+        if desktop_group and desktop_group.lower() == 'runtimes':
+            return True
+        if not desktop_group:
+            # No desktop group means no shortcut needed
+            return True
+        
+        tool_name = tool_config.get('name') or self.tool_id
+        desktop = self._desktop()
+        
+        # Determine destination directory (Bundles get subfolder per tool)
+        if desktop_group.lower() == 'bundles':
+            dest_dir = os.path.join(desktop, desktop_group, tool_name)
+        else:
+            dest_dir = os.path.join(desktop, desktop_group)
+        
+        self._ensure_dir(dest_dir)
+        
+        # Get shortcut metadata for this tool
+        meta = self.config.get_shortcut_meta(self.tool_id) or {}
+        mode = meta.get('mode')
+        
+        if mode == 'exe_candidates':
+            display = meta.get('display_name') or tool_name
+            candidates = []
+            for c in meta.get('exe_candidates', []):
+                if c.startswith('${LOCALAPPDATA}'):
+                    la = os.environ.get('LOCALAPPDATA', '')
+                    candidates.append(c.replace('${LOCALAPPDATA}', la))
+                else:
+                    candidates.append(c)
+            exe = next((p for p in candidates if os.path.exists(p)), None)
+            if exe:
+                return self._ps_create_shortcut(exe, dest_dir, display)
+            else:
+                self.logger.info(f"Executable not found for {tool_name} (may not be installed yet)")
+                return True
+                
+        elif mode == 'search_exe':
+            exe_name = meta.get('exe_name') or ''
+            roots = meta.get('search_roots', [])
+            exe = None
+            for r in roots:
+                if not os.path.exists(r):
+                    continue
+                for root, _, files in os.walk(r):
+                    if exe_name in files:
+                        exe = os.path.join(root, exe_name)
+                        break
+                if exe:
+                    break
+            if exe:
+                return self._ps_create_shortcut(exe, dest_dir, meta.get('display_name') or tool_name)
+            else:
+                self.logger.info(f"Executable not found for {tool_name} (may not be installed yet)")
+                return True
+                
+        elif mode == 'folder_all':
+            made_any = False
+            for folder in meta.get('folders', []):
+                if os.path.isdir(folder):
+                    made_any |= self._ps_shortcuts_from_folder(folder, dest_dir, meta.get('filter', '*.exe'))
+            if not made_any:
+                self.logger.info(f"No shortcuts created for {tool_name} (folder not found or empty)")
+            return True
+            
+        elif mode == 'eztools':
+            root = meta.get('root')
+            order = meta.get('order', [])
+            filter_pat = meta.get('filter', '*.exe')
+            if root and os.path.isdir(root):
+                priority_dirs = []
+                for sub in order:
+                    folder = os.path.join(root, sub)
+                    if os.path.isdir(folder):
+                        priority_dirs.append(folder)
+                
+                if priority_dirs:
+                    dirs_escaped = [d.replace("'", "''") for d in priority_dirs]
+                    dirs_str = "', '".join(dirs_escaped)
+                    dest_escaped = dest_dir.replace("'", "''")
+                    filter_escaped = filter_pat.replace("'", "''")
+                    
+                    code = import_common_module_and(
+                        f"$priorityDirs = @('{dirs_str}'); $seen = @{{}}; $shell = New-Object -ComObject WScript.Shell; foreach ($dir in $priorityDirs) {{ Get-ChildItem -Path $dir -Recurse -Filter '{filter_escaped}' -File -ErrorAction SilentlyContinue | ForEach-Object {{ $name = $_.Name; if (-not $seen.ContainsKey($name)) {{ $lnk = Join-Path '{dest_escaped}' ($name -replace '\\.exe$', '') + '.lnk'; $sc = $shell.CreateShortcut($lnk); $sc.TargetPath = $_.FullName; $sc.WorkingDirectory = $_.Directory.FullName; $sc.WindowStyle = 1; $sc.Description = $_.BaseName; $sc.Save(); $seen[$name] = $true }} }} }}",
+                        self.config.module_path
+                    )
+                    if not self.is_what_if_mode():
+                        res = run_powershell(code)
+                        if res.returncode == 0:
+                            self.logger.success(f"EZ Tools shortcuts created")
+                            return True
+                        else:
+                            self.logger.warn(f"Failed to create EZ Tools shortcuts: {res.stderr.strip()}")
+                            return False
+                    else:
+                        self.logger.info(f"[what-if] eztools shortcuts from {priority_dirs} -> {dest_dir}")
+                        return True
+            self.logger.info(f"EZ Tools not found (may not be installed yet)")
+            return True
+        else:
+            # No shortcut metadata - nothing to do
+            return True
+

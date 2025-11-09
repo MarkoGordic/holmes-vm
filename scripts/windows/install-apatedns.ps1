@@ -10,6 +10,9 @@
 
 Set-StrictMode -Version Latest
 
+# Ensure TLS 1.2 for downloads if helper is available
+try { if (-not (Get-Command Set-Tls12IfNeeded -ErrorAction SilentlyContinue)) { } else { Set-Tls12IfNeeded } } catch { }
+
 # Try to import common module for logging/helpers if available
 try {
     if (-not (Get-Command Write-Log -ErrorAction SilentlyContinue)) {
@@ -21,7 +24,9 @@ try {
 function Install-ApateDNS {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [string]$Destination = 'C:\\Tools\\ApateDNS'
+        [string]$Destination = 'C:\\Tools\\ApateDNS',
+        [string]$ShortcutCategory,
+        [switch]$SkipShortcuts
     )
 
     Write-Log -Level Info -Message 'Installing ApateDNS...'
@@ -29,7 +34,8 @@ function Install-ApateDNS {
 
     $installDir = $Destination
     $zipPath = Join-Path $env:TEMP 'ApateDNS.zip'
-    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'ApateDNS'
+    $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+    $desktopShortcutDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktopRoot $ShortcutCategory } else { Join-Path $desktopRoot 'ApateDNS' }
 
     # Ensure directories
     if (Get-Command Ensure-Directory -ErrorAction SilentlyContinue) {
@@ -53,10 +59,11 @@ function Install-ApateDNS {
             if (Get-Command Invoke-SafeDownload -ErrorAction SilentlyContinue) {
                 Invoke-SafeDownload -Uri $u -OutFile $zipPath -ErrorAction Stop | Out-Null
             } else {
-                Invoke-WebRequest -Uri $u -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+                $headers = @{ 'User-Agent' = 'HolmesVM/1.0 (+https://github.com/MarkoGordic/holmes-vm)'; 'Accept' = '*/*' }
+                Invoke-WebRequest -Uri $u -OutFile $zipPath -UseBasicParsing -Headers $headers -ErrorAction Stop
             }
             if (Test-Path -LiteralPath $zipPath) { $downloaded = $true; Write-Log -Level Success -Message "Downloaded: $u"; break }
-    } catch { Write-Log -Level Warn -Message "Failed to download from $($u): $($_.Exception.Message)" }
+        } catch { Write-Log -Level Warn -Message "Failed to download from $($u): $($_.Exception.Message)" }
     }
 
     if (-not $downloaded) {
@@ -71,6 +78,8 @@ function Install-ApateDNS {
         } else {
             Expand-Archive -Path $zipPath -DestinationPath $installDir -Force
         }
+        # Unblock files to avoid SmartScreen blocking
+        try { Get-ChildItem -Path $installDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue } catch { }
         Write-Log -Level Success -Message "Extracted to $installDir"
     } catch {
         Write-Log -Level Error -Message "Extraction failed: $($_.Exception.Message)"
@@ -88,21 +97,23 @@ function Install-ApateDNS {
         }
     } catch { }
 
-    # Create desktop shortcut(s)
+    # Create desktop shortcut(s) only if not skipped
     $exe = Get-ChildItem -Path $installDir -Recurse -Filter 'ApateDNS.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($exe) {
-        try {
-            $shell = New-Object -ComObject WScript.Shell
-            $lnk = Join-Path $desktopShortcutDir 'ApateDNS.lnk'
-            $sc = $shell.CreateShortcut($lnk)
-            $sc.TargetPath = $exe.FullName
-            $sc.WorkingDirectory = $exe.Directory.FullName
-            $sc.WindowStyle = 1
-            $sc.Description = 'ApateDNS'
-            $sc.Save()
-            Write-Log -Level Success -Message 'Desktop shortcut created.'
-        } catch {
-            Write-Log -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)"
+        if (-not $SkipShortcuts) {
+            try {
+                $shell = New-Object -ComObject WScript.Shell
+                $lnk = Join-Path $desktopShortcutDir 'ApateDNS.lnk'
+                $sc = $shell.CreateShortcut($lnk)
+                $sc.TargetPath = $exe.FullName
+                $sc.WorkingDirectory = $exe.Directory.FullName
+                $sc.WindowStyle = 1
+                $sc.Description = 'ApateDNS'
+                $sc.Save()
+                Write-Log -Level Success -Message 'Desktop shortcut created.'
+            } catch {
+                Write-Log -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)"
+            }
         }
         Write-Log -Level Success -Message 'ApateDNS installation completed.'
     } else {

@@ -79,14 +79,16 @@ class Config:
         return item.get('version') or self.versions.get(tool_id)
 
     def get_choco_params(self, tool_id: str) -> Optional[Dict[str, Any]]:
-        """Normalized chocolatey installer parameters (name, version)."""
+        """Normalized chocolatey installer parameters (name, version, install_args, suppress_default_args)."""
         item = self.get_tool_by_id(tool_id)
         if not item or item.get('installer_type') != 'chocolatey':
             return None
         return {
             'name': item.get('package_name'),
             'tool_name': item.get('name'),
-            'version': self.get_version_for(tool_id)
+            'version': self.get_version_for(tool_id),
+            'install_args': item.get('install_args'),
+            'suppress_default_args': item.get('suppress_default_args', False)
         }
 
     def get_powershell_params(self, tool_id: str) -> Optional[Dict[str, Any]]:
@@ -107,6 +109,11 @@ class Config:
         if not item or item.get('installer_type') != 'function':
             return None
         return item.get('installer')
+
+    def get_shortcut_meta(self, tool_id: str) -> Optional[Dict[str, Any]]:
+        """Get shortcut metadata for a tool by its ID"""
+        tool = self.get_tool_by_id(tool_id)
+        return tool.get('shortcut') if tool else None
 
     def validate(self, logger: Optional[Any] = None) -> bool:
         """Validate tools.json structure and report issues. Returns True if valid enough to proceed."""

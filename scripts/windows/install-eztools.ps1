@@ -26,7 +26,7 @@ function Invoke-SafeDownload { [CmdletBinding()] param([Parameter(Mandatory)][st
 
 function Install-EZTools {
     [CmdletBinding(SupportsShouldProcess)]
-    param([string]$Destination = 'C:\Tools\EricZimmermanTools',[int]$NetVersion = 0,[string]$LogDir)
+    param([string]$Destination = 'C:\\Tools\\EricZimmermanTools',[int]$NetVersion = 0,[string]$LogDir,[string]$ShortcutCategory,[switch]$SkipShortcuts)
     Initialize-Logging -LogDir $LogDir
     Add-LogLine -Level Info -Message "Starting installation of $script:InstallerName"
     if (-not $PSCmdlet.ShouldProcess($Destination, "Install $script:InstallerName")) { Add-LogLine -Level Info -Message "WhatIf: Would install $script:InstallerName to $Destination (Net=$NetVersion)"; return }
@@ -38,7 +38,8 @@ function Install-EZTools {
     $ezToolsNet4Dir = Join-Path $ezToolsDir 'net4'
     $ezToolsNet6Dir = Join-Path $ezToolsDir 'net6'
     $ezToolsNet9Dir = Join-Path $ezToolsDir 'net9'
-    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'EricZimmermanTools'
+    $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+    $desktopShortcutDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktopRoot $ShortcutCategory } else { Join-Path $desktopRoot 'EricZimmermanTools' }
 
     Invoke-ProgressStep -Name 'Check OS and Admin' -StepIndex (++$step) -TotalSteps $total -Action { if (Get-Command Assert-WindowsAndAdmin -ErrorAction SilentlyContinue) { Assert-WindowsAndAdmin } else { Add-LogLine -Level Warn -Message 'Common module not loaded; proceeding without explicit admin check.' } } | Out-Null
     Invoke-ProgressStep -Name 'Prepare directories' -StepIndex (++$step) -TotalSteps $total -Action { Ensure-Directory -Path $ezToolsDir; Ensure-Directory -Path $desktopShortcutDir } | Out-Null
@@ -48,27 +49,30 @@ function Install-EZTools {
     Invoke-ProgressStep -Name 'Add base PATH' -StepIndex (++$step) -TotalSteps $total -Action { if (Test-Path -LiteralPath $ezToolsDir) { Add-PathIfMissing -Path $ezToolsDir -Scope Machine } } | Out-Null
     Invoke-ProgressStep -Name 'Add net PATHs' -StepIndex (++$step) -TotalSteps $total -Action { $netDirs = @(); if (Test-Path -LiteralPath $ezToolsNet4Dir) { $netDirs += $ezToolsNet4Dir }; if (Test-Path -LiteralPath $ezToolsNet6Dir) { $netDirs += $ezToolsNet6Dir }; if (Test-Path -LiteralPath $ezToolsNet9Dir) { $netDirs += $ezToolsNet9Dir }; if ($netDirs.Count -eq 0) { Add-LogLine -Level Warn -Message "No net-specific directories found under $ezToolsDir (expected net4/net6/net9)." }; foreach ($dir in $netDirs) { Add-PathIfMissing -Path $dir -Scope Machine; Add-LogLine -Level Success -Message "Added to PATH: $dir" } } | Out-Null
     Invoke-ProgressStep -Name 'Create only foldered shortcuts' -StepIndex (++$step) -TotalSteps $total -Action {
-        $priorityDirs = @(); if (Test-Path -LiteralPath $ezToolsNet9Dir) { $priorityDirs += $ezToolsNet9Dir }; if (Test-Path -LiteralPath $ezToolsNet6Dir) { $priorityDirs += $ezToolsNet6Dir }; if (Test-Path -LiteralPath $ezToolsNet4Dir) { $priorityDirs += $ezToolsNet4Dir }
-        $seen = @{}
-        $shell = New-Object -ComObject WScript.Shell
-        foreach ($p in $priorityDirs) {
-            Get-ChildItem -Path $p -Recurse -Filter '*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object {
-                $name = $_.Name
-                if (-not $seen.ContainsKey($name)) {
-                    $lnk = Join-Path $desktopShortcutDir ($name + '.lnk')
-                    $sc = $shell.CreateShortcut($lnk)
-                    $sc.TargetPath = $_.FullName
-                    $sc.WorkingDirectory = $_.Directory.FullName
-                    $sc.WindowStyle = 1
-                    $sc.Description = $_.BaseName
-                    $sc.Save()
-                    $seen[$name] = $true
+        if (-not $SkipShortcuts) {
+            $priorityDirs = @(); if (Test-Path -LiteralPath $ezToolsNet9Dir) { $priorityDirs += $ezToolsNet9Dir }; if (Test-Path -LiteralPath $ezToolsNet6Dir) { $priorityDirs += $ezToolsNet6Dir }; if (Test-Path -LiteralPath $ezToolsNet4Dir) { $priorityDirs += $ezToolsNet4Dir }
+            $seen = @{}
+            $shell = New-Object -ComObject WScript.Shell
+            foreach ($p in $priorityDirs) {
+                Get-ChildItem -Path $p -Recurse -Filter '*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object {
+                    $name = $_.Name
+                    if (-not $seen.ContainsKey($name)) {
+                        $lnk = Join-Path $desktopShortcutDir ($name + '.lnk')
+                        $sc = $shell.CreateShortcut($lnk)
+                        $sc.TargetPath = $_.FullName
+                        $sc.WorkingDirectory = $_.Directory.FullName
+                        $sc.WindowStyle = 1
+                        $sc.Description = $_.BaseName
+                        $sc.Save()
+                        $seen[$name] = $true
+                    }
                 }
             }
         }
     } | Out-Null
     Invoke-ProgressStep -Name 'Cleanup' -StepIndex (++$step) -TotalSteps $total -Action { if (Test-Path -LiteralPath $ezToolsZip) { Remove-Item -Path $ezToolsZip -Force -ErrorAction SilentlyContinue } } | Out-Null
     Update-InstallProgress -Percent 100 -Status 'Completed' -CurrentTask ''
-    Add-LogLine -Level Success -Message "Installation finished. Shortcuts created in Desktop\\EricZimmermanTools."
+    Add-LogLine -Level Success -Message "Installation finished."
+    if (-not $SkipShortcuts) { Add-LogLine -Level Success -Message "Shortcuts created in $desktopShortcutDir." }
     try { Stop-Transcript | Out-Null } catch { }
 }

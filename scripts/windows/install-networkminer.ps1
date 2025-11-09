@@ -20,8 +20,10 @@ function Ensure-Directory { param([Parameter(Mandatory)][string]$Path) if (-not 
 function Install-NetworkMiner {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [string]$Destination = 'C:\Tools\NetworkMiner',
-        [string]$LogDir
+        [string]$Destination = 'C:\\Tools\\NetworkMiner',
+        [string]$LogDir,
+        [string]$ShortcutCategory,
+        [switch]$SkipShortcuts
     )
 
     Initialize-Logging -LogDir $LogDir
@@ -82,21 +84,25 @@ function Install-NetworkMiner {
         }
     }
 
-    # Create desktop shortcut if executable found
+    # Create desktop shortcut if executable found and shortcuts are not skipped
     $exe = Get-ChildItem -Path $Destination -Recurse -Filter 'NetworkMiner.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($exe) {
-        try {
-            $desktop = [Environment]::GetFolderPath('Desktop')
-            $lnkPath = Join-Path $desktop 'NetworkMiner.lnk'
-            $wsh = New-Object -ComObject WScript.Shell
-            $sc = $wsh.CreateShortcut($lnkPath)
-            $sc.TargetPath = $exe.FullName
-            $sc.WorkingDirectory = $exe.Directory.FullName
-            $sc.WindowStyle = 1
-            $sc.Description = 'NetworkMiner'
-            $sc.Save()
-            Add-LogLine -Level Success -Message "Shortcut created: $lnkPath"
-        } catch { Add-LogLine -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)" }
+        if (-not $SkipShortcuts) {
+            try {
+                $desktop = [Environment]::GetFolderPath('Desktop')
+                $targetDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktop $ShortcutCategory } else { $desktop }
+                if (-not (Test-Path -LiteralPath $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
+                $lnkPath = Join-Path $targetDir 'NetworkMiner.lnk'
+                $wsh = New-Object -ComObject WScript.Shell
+                $sc = $wsh.CreateShortcut($lnkPath)
+                $sc.TargetPath = $exe.FullName
+                $sc.WorkingDirectory = $exe.Directory.FullName
+                $sc.WindowStyle = 1
+                $sc.Description = 'NetworkMiner'
+                $sc.Save()
+                Add-LogLine -Level Success -Message "Shortcut created: $lnkPath"
+            } catch { Add-LogLine -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)" }
+        }
     } else {
         Add-LogLine -Level Warn -Message 'NetworkMiner.exe not found after installation.'
     }

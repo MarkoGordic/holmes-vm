@@ -1,7 +1,9 @@
 function Install-RegRipper {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [string]$Destination = 'C:\\Tools\\RegRipper4.0'
+        [string]$Destination = 'C:\\Tools\\RegRipper4.0',
+        [string]$ShortcutCategory,
+        [switch]$SkipShortcuts
     )
 
     # Ensure common helpers are available when run standalone
@@ -17,7 +19,8 @@ function Install-RegRipper {
     $regripperDir = $Destination
     $zipUrl = 'https://github.com/keydet89/RegRipper4.0/archive/refs/heads/main.zip'
     $zipPath = Join-Path $env:TEMP 'RegRipper4.0.zip'
-    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'RegRipper4.0'
+    $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+    $desktopShortcutDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktopRoot $ShortcutCategory } else { Join-Path $desktopRoot 'RegRipper4.0' }
 
     Ensure-Directory -Path $regripperDir
     Ensure-Directory -Path $desktopShortcutDir
@@ -43,7 +46,9 @@ function Install-RegRipper {
         try { Remove-Item -Path $mainFolder -Recurse -Force -ErrorAction Stop } catch { }
     }
 
-    # Create shortcuts to all .exe files in RegRipper4.0 on Desktop
-    New-ShortcutsFromFolder -Folder $regripperDir -Filter '*.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $regripperDir
-    Write-Log -Level Success -Message 'Shortcuts to RegRipper 4.0 created on Desktop.'
+    # Create shortcuts to all .exe files in RegRipper4.0 on Desktop only if not skipped
+    if (-not $SkipShortcuts) {
+        New-ShortcutsFromFolder -Folder $regripperDir -Filter '*.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $regripperDir
+        Write-Log -Level Success -Message "Shortcuts to RegRipper 4.0 created in $desktopShortcutDir."
+    }
 }

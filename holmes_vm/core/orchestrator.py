@@ -16,7 +16,7 @@ from holmes_vm.installers.chocolatey import ChocolateyInstaller
 from holmes_vm.installers.powershell import PowerShellInstaller
 from holmes_vm.installers.functions import (
     NetworkCheckInstaller, ChocolateySetupInstaller, PipUpgradeInstaller,
-    WallpaperInstaller, AppearanceInstaller, PinTaskbarInstaller, OrganizeDesktopInstaller
+    WallpaperInstaller, AppearanceInstaller, PrepareDesktopGroupsInstaller, CreateShortcutInstaller
 )
 
 
@@ -32,11 +32,10 @@ class SetupOrchestrator:
     def build_steps_from_selection(self, selected_ids: List[str]) -> List[Tuple[str, Callable]]:
         """Build installation steps from selected tool IDs"""
         steps: List[Tuple[str, Callable]] = []
-        
-        # Always assert platform/admin
         steps.append(('Assert Windows/Admin', lambda: self._assert_windows_admin()))
+        prep = PrepareDesktopGroupsInstaller(self.config, self.logger, self.args)
+        steps.append((prep.get_name(), lambda inst=prep: inst.install()))
         
-        # Process each selected tool
         for tool_id in selected_ids:
             tool_config = self.config.get_tool_by_id(tool_id)
             if not tool_config:
@@ -47,59 +46,77 @@ class SetupOrchestrator:
             
             if installer_type == 'function':
                 installer_id = self.config.get_function_installer_id(tool_id)
+                # Previously skipped organize_desktop; now enabled
                 installer = self.registry.get_installer(installer_id, self.config, self.logger, self.args)
                 if installer:
                     steps.append((installer.get_name(), lambda inst=installer: inst.install()))
                 else:
                     self.logger.warn(f"Installer not found: {installer_id}")
-            
+                    
             elif installer_type == 'chocolatey':
                 choco = self.config.get_choco_params(tool_id) or {}
                 installer = ChocolateyInstaller(
                     self.config, self.logger, self.args,
-                    choco.get('name'), choco.get('tool_name'), choco.get('version')
+                    choco.get('name'), choco.get('tool_name'), choco.get('version'), choco.get('install_args'), choco.get('suppress_default_args')
                 )
-                steps.append((installer.get_name(), lambda inst=installer: inst.install()))
-            
+                
+                # Prepare optional shortcut creator
+                desktop_group = tool_config.get('desktop_group')
+                shortcut_installer = None
+                if desktop_group and desktop_group.lower() != 'runtimes':
+                    shortcut_installer = CreateShortcutInstaller(
+                        self.config, self.logger, self.args, tool_id
+                    )
+                
+                # Single combined step: install then create shortcut
+                def _do_install_and_shortcut(inst=installer, sc_inst=shortcut_installer):
+                    inst.install()
+                    if sc_inst:
+                        try:
+                            sc_inst.install()
+                        except Exception as _:
+                            # Shortcut creation failure should not fail the whole step
+                            pass
+                
+                steps.append((installer.get_name(), _do_install_and_shortcut))
+                
             elif installer_type == 'powershell':
                 ps = self.config.get_powershell_params(tool_id) or {}
-                ps_args = ps.get('args', '')
-                # Add LogDir argument if installing EZ Tools
+                ps_args = ps.get('args', '') or ''
                 if tool_id == 'eztools':
                     log_dir = getattr(self.args, 'log_dir', None)
                     if log_dir:
-                        ps_args = f"-LogDir '{log_dir}'"
+                        ps_args = (ps_args + f" -LogDir '{log_dir}'").strip()
+                
+                desktop_group = tool_config.get('desktop_group')
+                if desktop_group:
+                    shortcut_category = desktop_group
+                    # Place bundle shortcuts in subfolders inside Bundles
+                    if desktop_group.lower() == 'bundles':
+                        shortcut_category = f"{desktop_group}\\{tool_config.get('name')}"
+                    ps_args = (ps_args + f" -ShortcutCategory '{shortcut_category}'").strip()
+                
                 installer = PowerShellInstaller(
                     self.config, self.logger, self.args,
                     ps.get('script_path'), ps.get('function_name'), ps.get('tool_name'), ps_args
                 )
-                steps.append((installer.get_name(), lambda inst=installer: inst.install()))
-            
-            # Handle post-install actions
-            for action in tool_config.get('post_install', []):
-                action_type = action.get('type')
-                if action_type == 'pin_taskbar':
-                    path = action.get('path')
-                    tool_name = tool_config.get('name')
-                    installer = PinTaskbarInstaller(
-                        self.config, self.logger, self.args,
-                        path, tool_name
+                
+                # Optional second-chance shortcut creation in same step
+                sc_inst = None
+                if desktop_group and desktop_group.lower() != 'runtimes':
+                    sc_inst = CreateShortcutInstaller(
+                        self.config, self.logger, self.args, tool_id
                     )
-                    steps.append((installer.get_name(), lambda inst=installer: inst.install()))
-                elif action_type == 'pin_taskbar_multi':
-                    # Try multiple paths for pinning
-                    paths = action.get('paths', [])
-                    tool_name = tool_config.get('name')
-                    for path in paths:
-                        installer = PinTaskbarInstaller(
-                            self.config, self.logger, self.args,
-                            path, tool_name
-                        )
-                        steps.append((f"Pin {tool_name} (attempt)", lambda inst=installer: inst.install()))
-        
-        # Always organize desktop shortcuts AFTER tool installs
-        organizer = OrganizeDesktopInstaller(self.config, self.logger, self.args)
-        steps.append((organizer.get_name(), lambda inst=organizer: inst.install()))
+                
+                def _do_ps_and_shortcut(inst=installer, sc=sc_inst):
+                    inst.install()
+                    if sc:
+                        try:
+                            sc.install()
+                        except Exception:
+                            pass
+                
+                steps.append((installer.get_name(), _do_ps_and_shortcut))
         
         return steps
     

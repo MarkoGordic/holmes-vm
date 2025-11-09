@@ -7,10 +7,10 @@ One-click setup for a Windows forensics workstation.
 ![Python](https://img.shields.io/badge/python-3.x-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey)
 ![UI](https://img.shields.io/badge/UI-GUI%20%7C%20Console-green)
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.1-blue)
 ![Status](https://img.shields.io/badge/status-beta-orange)
 
-_Beta notice: current version 0.3.0 (Beta)._
+_Beta notice: current version 0.3.1 (Beta)._
 
 ---
 

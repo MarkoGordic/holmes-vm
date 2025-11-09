@@ -21,14 +21,17 @@ try {
 function Install-CFFExplorer {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [string]$Destination = 'C:\\Tools\\CFFExplorer'
+        [string]$Destination = 'C:\\Tools\\CFFExplorer',
+        [string]$ShortcutCategory,
+        [switch]$SkipShortcuts
     )
 
     Write-Log -Level Info -Message 'Installing CFF Explorer (Explorer Suite)...'
     if (Get-Command Assert-WindowsAndAdmin -ErrorAction SilentlyContinue) { Assert-WindowsAndAdmin }
 
     $installDir = $Destination
-    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'CFF Explorer'
+    $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+    $desktopShortcutDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktopRoot $ShortcutCategory } else { Join-Path $desktopRoot 'CFF Explorer' }
 
     # Ensure directories
     if (Get-Command Ensure-Directory -ErrorAction SilentlyContinue) {
@@ -144,18 +147,24 @@ function Install-CFFExplorer {
 
     if ($exePath) {
         Write-Log -Level Success -Message "CFF Explorer located at: $exePath"
-        try {
-            $shell = New-Object -ComObject WScript.Shell
-            $lnk = Join-Path $desktopShortcutDir 'CFF Explorer.lnk'
-            $sc = $shell.CreateShortcut($lnk)
-            $sc.TargetPath = $exePath
-            $sc.WorkingDirectory = Split-Path -Parent $exePath
-            $sc.WindowStyle = 1
-            $sc.Description = 'CFF Explorer'
-            $sc.Save()
-        } catch {
-            Write-Log -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)"
+        
+        # Create desktop shortcut only if not skipped
+        if (-not $SkipShortcuts) {
+            try {
+                $shell = New-Object -ComObject WScript.Shell
+                $lnk = Join-Path $desktopShortcutDir 'CFF Explorer.lnk'
+                $sc = $shell.CreateShortcut($lnk)
+                $sc.TargetPath = $exePath
+                $sc.WorkingDirectory = Split-Path -Parent $exePath
+                $sc.WindowStyle = 1
+                $sc.Description = 'CFF Explorer'
+                $sc.Save()
+                Write-Log -Level Success -Message "Shortcut created: $lnk"
+            } catch {
+                Write-Log -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)"
+            }
         }
+        
         Write-Log -Level Success -Message 'CFF Explorer installation completed.'
     } else {
         Write-Log -Level Error -Message 'Could not install or locate CFF Explorer.'

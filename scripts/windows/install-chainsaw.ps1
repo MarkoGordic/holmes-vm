@@ -2,7 +2,9 @@ function Install-Chainsaw {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [string]$Destination = 'C:\\Tools\\Chainsaw',
-        [switch]$InstallRules = $true
+        [switch]$InstallRules = $true,
+        [string]$ShortcutCategory,
+        [switch]$SkipShortcuts
     )
 
     # Ensure common helpers are available when run standalone
@@ -17,7 +19,8 @@ function Install-Chainsaw {
 
     $installDir = $Destination
     $zipPath = Join-Path $env:TEMP 'chainsaw.zip'
-    $desktopShortcutDir = Join-Path (Join-Path $env:USERPROFILE 'Desktop') 'Chainsaw'
+    $desktopRoot = Join-Path $env:USERPROFILE 'Desktop'
+    $desktopShortcutDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktopRoot $ShortcutCategory } else { Join-Path $desktopRoot 'Chainsaw' }
     $rulesRoot = Join-Path $installDir 'rules'
 
     Ensure-Directory -Path $installDir
@@ -85,8 +88,10 @@ function Install-Chainsaw {
             }
         }
 
-        # Create desktop shortcuts
-    New-ShortcutsFromFolder -Folder $binDir -Filter 'chainsaw.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $binDir
+        # Create desktop shortcuts only if not skipped
+        if (-not $SkipShortcuts) {
+            New-ShortcutsFromFolder -Folder $binDir -Filter 'chainsaw.exe' -ShortcutDir $desktopShortcutDir -WorkingDir $binDir
+        }
         Write-Log -Level Success -Message 'Chainsaw installed.'
     } else {
         Write-Log -Level Warn -Message 'chainsaw.exe not found after extraction.'
