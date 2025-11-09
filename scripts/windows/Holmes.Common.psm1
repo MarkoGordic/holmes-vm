@@ -153,7 +153,9 @@ function Install-ChocoPackage {
     param(
         [Parameter(Mandatory)][string]$Name,
         [string]$Version,
-        [switch]$ForceReinstall
+        [switch]$ForceReinstall,
+        [string]$InstallArguments,
+        [switch]$SuppressDefaultInstallArgs
     )
     if (-not $ForceReinstall -and (Test-ChocoPackageInstalled -Name $Name)) {
         Write-Log -Level Success -Message "Package already installed: $Name"
@@ -165,8 +167,13 @@ function Install-ChocoPackage {
     
     # Prevent desktop shortcuts and auto-run for packages that support it
     # VS Code, DB Browser for SQLite, and many other packages respect these arguments
-    $args += '--install-arguments'
-    $args += '/VERYSILENT /NORESTART /MERGETASKS="!desktopicon,!quicklaunchicon,!runcode"'
+    if ($InstallArguments) {
+        $args += '--install-arguments'
+        $args += $InstallArguments
+    } elseif (-not $SuppressDefaultInstallArgs) {
+        $args += '--install-arguments'
+        $args += '/VERYSILENT /NORESTART /MERGETASKS="!desktopicon,!quicklaunchicon,!runcode"'
+    }
     
     if ($PSCmdlet.ShouldProcess($Name, 'choco install')) {
         & choco @args | Out-Null

@@ -409,6 +409,33 @@
           "installer": "organize_desktop"
         }
       ]
+    },
+    {
+      "id": "disk_forensics",
+      "name": "Disk & Artifact Forensics",
+      "description": "Filesystem and artifact analysis suites.",
+      "items": [
+        {
+          "id": "autopsy",
+          "name": "Autopsy",
+          "description": "Digital forensics platform",
+          "desktop_group": "Forensics",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-autopsy.ps1",
+          "function_name": "Install-Autopsy",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Autopsy",
+            "exe_name": "Autopsy64.exe",
+            "search_roots": [
+              "C:\\Tools\\Autopsy",
+              "C:\\Program Files\\Autopsy",
+              "C:\\Program Files (x86)\\Autopsy"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
