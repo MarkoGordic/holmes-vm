@@ -434,6 +434,26 @@
               "C:\\Program Files (x86)\\Autopsy"
             ]
           }
+        },
+        {
+          "id": "shadowexplorer",
+          "name": "ShadowExplorer",
+          "description": "Browse and restore files from Volume Shadow Copies",
+          "desktop_group": "Forensics",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-shadowexplorer.ps1",
+          "function_name": "Install-ShadowExplorer",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "ShadowExplorer",
+            "exe_name": "ShadowExplorer.exe",
+            "search_roots": [
+              "C:\\Tools\\ShadowExplorer",
+              "C:\\Program Files\\ShadowExplorer",
+              "C:\\Program Files (x86)\\ShadowExplorer"
+            ]
+          }
         }
       ]
     }
