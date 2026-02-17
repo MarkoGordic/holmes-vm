@@ -80,6 +80,76 @@
       ]
     },
     {
+      "id": "web_browsers",
+      "name": "Web Browsers",
+      "description": "Install primary browsers and remove Microsoft Edge.",
+      "items": [
+        {
+          "id": "google_chrome",
+          "name": "Google Chrome",
+          "description": "Google Chrome stable browser",
+          "desktop_group": "Web Browsers",
+          "desktop_keywords": ["chrome", "google", "google chrome"],
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "googlechrome",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Google Chrome",
+            "exe_candidates": [
+              "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+              "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+            ]
+          }
+        },
+        {
+          "id": "brave_browser",
+          "name": "Brave Browser",
+          "description": "Privacy-focused Chromium browser",
+          "desktop_group": "Web Browsers",
+          "desktop_keywords": ["brave", "brave browser"],
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "brave",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Brave",
+            "exe_candidates": [
+              "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+              "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+            ]
+          }
+        },
+        {
+          "id": "firefox_browser",
+          "name": "Mozilla Firefox",
+          "description": "Mozilla Firefox browser",
+          "desktop_group": "Web Browsers",
+          "desktop_keywords": ["firefox", "mozilla"],
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "firefox",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Mozilla Firefox",
+            "exe_candidates": [
+              "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+              "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe"
+            ]
+          }
+        },
+        {
+          "id": "remove_edge",
+          "name": "Uninstall Microsoft Edge",
+          "description": "Best-effort uninstall of Edge and Edge update services",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/uninstall-edge.ps1",
+          "function_name": "Uninstall-MicrosoftEdge"
+        }
+      ]
+    },
+    {
       "id": "reverse",
       "name": "Reverse Engineering",
       "description": "Tools for binary and .NET analysis.",
@@ -365,7 +435,8 @@
           "id": "nirsoft_browser",
           "name": "NirSoft Web Browser Tools",
           "description": "Collection of browser history, cache, cookie and credential viewers",
-          "desktop_group": "Bundles",
+          "desktop_group": "Web Browsers",
+          "desktop_keywords": ["nirsoft", "browsinghistoryview", "sessionhistory", "esedatabaseview"],
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-nirsoft-browser-tools.ps1",

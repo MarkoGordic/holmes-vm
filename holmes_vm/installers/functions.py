@@ -262,14 +262,22 @@ class OrganizeDesktopInstaller(BaseInstaller):
             return [k.lower() for k in keywords if isinstance(k, str) and k]
         # Derive from name: strip parentheses and split
         import re
+        stopwords = {
+            'tool', 'tools', 'suite', 'viewer', 'view', 'windows', 'window',
+            'analysis', 'forensics', 'forensic', 'browser', 'browsers',
+            'bundle', 'bundles', 'runtime', 'dependencies', 'desktop'
+        }
         name = (item.get('name') or '').lower()
         name = re.sub(r"\([^)]*\)", "", name)  # remove (...) parts
         parts = re.split(r"[^a-z0-9]+", name)
-        tokens = [p for p in parts if len(p) >= 3]
+        tokens = [p for p in parts if len(p) >= 3 and p not in stopwords]
         # Also include id
         iid = (item.get('id') or '').lower()
         if iid:
-            tokens.append(iid)
+            iid_parts = re.split(r"[^a-z0-9]+", iid)
+            for tok in iid_parts:
+                if len(tok) >= 3 and tok not in stopwords:
+                    tokens.append(tok)
         # De-duplicate while preserving order
         seen = set()
         out: List[str] = []
@@ -278,6 +286,35 @@ class OrganizeDesktopInstaller(BaseInstaller):
                 seen.add(t)
                 out.append(t)
         return out
+
+    def _build_group_tokens(self, pairs: List[Tuple[str, Dict[str, str]]]) -> List[Tuple[str, List[str]]]:
+        out_map: Dict[str, Tuple[str, List[str]]] = {}
+        for group, item in pairs:
+            key = group.lower()
+            if key not in out_map:
+                out_map[key] = (group, [])
+            current_group, tokens = out_map[key]
+            for tok in self._derive_tokens(item):
+                if tok not in tokens:
+                    tokens.append(tok)
+            out_map[key] = (current_group, tokens)
+        return list(out_map.values())
+
+    def _pick_group_for_entry(self, entry_name: str, group_tokens: List[Tuple[str, List[str]]]) -> Optional[str]:
+        name = entry_name.lower()
+        best_group: Optional[str] = None
+        best_score = 0
+        for group, tokens in group_tokens:
+            if not tokens:
+                continue
+            score = sum(len(tok) for tok in tokens if tok in name)
+            if score > best_score:
+                best_group = group
+                best_score = score
+        # Keep threshold above noise from tiny accidental matches.
+        if best_score < 4:
+            return None
+        return best_group
 
     def _safe_move(self, src: str, dst_dir: str) -> Optional[str]:
         try:
@@ -322,32 +359,24 @@ class OrganizeDesktopInstaller(BaseInstaller):
             return False
 
         moved_any = False
-        desktop_dirs = [p for p in entries if os.path.isdir(p)]
-
-        # Move folders whose names match tokens (contains), but skip target group folders
-        for group, item in pairs:
-            group_dir = os.path.join(desktop, group)
-            tokens = self._derive_tokens(item)
+        group_tokens = self._build_group_tokens(pairs)
+        group_dirs = {group: os.path.join(desktop, group) for group, _ in group_tokens}
+        for group_dir in group_dirs.values():
             os.makedirs(group_dir, exist_ok=True)
-            for d in list(desktop_dirs):
-                if os.path.normcase(d) == os.path.normcase(group_dir):
-                    continue  # do not move the target folder itself
-                base = os.path.basename(d).lower()
-                if any(tok in base for tok in tokens):
-                    # Only move if folder currently sits directly on Desktop
-                    if os.path.dirname(d) == desktop:
-                        target = os.path.join(group_dir, os.path.basename(d))
-                        try:
-                            if self.is_what_if_mode():
-                                self.logger.info(f"[what-if] Move folder '{d}' -> '{target}'\n")
-                            else:
-                                shutil.move(d, target)
-                            moved_any = True
-                            # Update lists to avoid repeated moves
-                            entries = [os.path.join(desktop, e) for e in os.listdir(desktop)]
-                            desktop_dirs = [p for p in entries if os.path.isdir(p)]
-                        except Exception as e:
-                            self.logger.warn(f"Failed moving folder '{d}': {e}")
+
+        desktop_dirs = [p for p in entries if os.path.isdir(p)]
+        protected_dirs = {os.path.normcase(p) for p in group_dirs.values()}
+        for d in list(desktop_dirs):
+            if os.path.normcase(d) in protected_dirs:
+                continue
+            if os.path.dirname(d) != desktop:
+                continue
+            chosen = self._pick_group_for_entry(os.path.basename(d), group_tokens)
+            if not chosen:
+                continue
+            dst = self._safe_move(d, group_dirs[chosen])
+            if dst:
+                moved_any = True
 
         # Refresh file list for shortcuts
         try:
@@ -355,23 +384,17 @@ class OrganizeDesktopInstaller(BaseInstaller):
         except Exception:
             pass
 
-        # Move shortcuts (.lnk, .url) whose names contain tokens
-        for group, item in pairs:
-            group_dir = os.path.join(desktop, group)
-            tokens = self._derive_tokens(item)
-            for path in list(entries):
-                lower = path.lower()
-                if not (lower.endswith('.lnk') or lower.endswith('.url')):
-                    continue
-                base = os.path.basename(lower)
-                if any(tok in base for tok in tokens):
-                    dst = self._safe_move(path, group_dir)
-                    if dst:
-                        moved_any = True
-                        try:
-                            entries.remove(path)
-                        except ValueError:
-                            pass
+        # Move shortcuts (.lnk, .url) using best category token score
+        for path in list(entries):
+            lower = path.lower()
+            if not (lower.endswith('.lnk') or lower.endswith('.url')):
+                continue
+            chosen = self._pick_group_for_entry(os.path.basename(lower), group_tokens)
+            if not chosen:
+                continue
+            dst = self._safe_move(path, group_dirs[chosen])
+            if dst:
+                moved_any = True
 
         if moved_any:
             self.logger.success('Desktop shortcuts organized into folders.')
@@ -561,4 +584,3 @@ class CreateShortcutInstaller(BaseInstaller):
         else:
             # No shortcut metadata - nothing to do
             return True
-

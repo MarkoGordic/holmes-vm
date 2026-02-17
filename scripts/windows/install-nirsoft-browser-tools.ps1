@@ -52,67 +52,78 @@ function Install-NirSoftBrowserTools {
     Ensure-Directory -Path $installDir
     Ensure-Directory -Path $desktopShortcutDir
 
-    # Define list of browser tools (zip file suffix pattern: <tool>.zip)
-    # Only include Windows GUI utilities (exclude command-line variants if overlapping)
-    $tools = @(
-        'BrowsingHistoryView',
-        'ChromeCacheView',
-        'ChromeCookiesView',
-        'ChromeHistoryView',
-        'ChromePass',
-        'IECacheView',
-        'IECookiesView',
-        'IEHistoryView',
-        'MZCookiesView',  # Firefox cookies (legacy name)
-        'MZCacheView',    # Firefox cache (legacy)
-        'MZHistoryView',  # Firefox history (legacy)
-        'MozillaCacheView',
-        'MozillaCookiesView',
-        'MozillaHistoryView',
-        'OperaCacheView',
-        'SafariCacheView',
-        'WebBrowserPassView',
-        'MyLastSearch',
-        'FlashCookiesView',
-        'VideoCacheView'
+    # Define requested browser tools and download-name fallbacks.
+    $toolRequests = @(
+        @{ Display = 'BrowsingHistoryView'; Candidates = @('BrowsingHistoryView') },
+        @{ Display = 'Session History Scrounger'; Candidates = @('SessionHistoryView', 'SessionHistoryScrounger') },
+        @{ Display = 'ESEDatabaseView'; Candidates = @('ESEDatabaseView') },
+        @{ Display = 'ChromeCacheView'; Candidates = @('ChromeCacheView') },
+        @{ Display = 'ChromeCookiesView'; Candidates = @('ChromeCookiesView') },
+        @{ Display = 'ChromeHistoryView'; Candidates = @('ChromeHistoryView') },
+        @{ Display = 'ChromePass'; Candidates = @('ChromePass') },
+        @{ Display = 'IECacheView'; Candidates = @('IECacheView') },
+        @{ Display = 'IECookiesView'; Candidates = @('IECookiesView') },
+        @{ Display = 'IEHistoryView'; Candidates = @('IEHistoryView') },
+        @{ Display = 'MZCookiesView'; Candidates = @('MZCookiesView') },       # Firefox cookies (legacy name)
+        @{ Display = 'MZCacheView'; Candidates = @('MZCacheView') },           # Firefox cache (legacy)
+        @{ Display = 'MZHistoryView'; Candidates = @('MZHistoryView') },       # Firefox history (legacy)
+        @{ Display = 'MozillaCacheView'; Candidates = @('MozillaCacheView') },
+        @{ Display = 'MozillaCookiesView'; Candidates = @('MozillaCookiesView') },
+        @{ Display = 'MozillaHistoryView'; Candidates = @('MozillaHistoryView') },
+        @{ Display = 'OperaCacheView'; Candidates = @('OperaCacheView') },
+        @{ Display = 'SafariCacheView'; Candidates = @('SafariCacheView') },
+        @{ Display = 'WebBrowserPassView'; Candidates = @('WebBrowserPassView') },
+        @{ Display = 'MyLastSearch'; Candidates = @('MyLastSearch') },
+        @{ Display = 'FlashCookiesView'; Candidates = @('FlashCookiesView') },
+        @{ Display = 'VideoCacheView'; Candidates = @('VideoCacheView') }
     )
-
-    # Some tools changed names over time; include modern equivalents mapping
-    $altMap = @{ }
 
     $baseUrl = 'https://www.nirsoft.net/toolsdownload'
 
     $downloadFailures = @()
 
-    foreach ($tool in $tools) {
-        $zipName = "$tool.zip"
-        $url = "$baseUrl/$zipName"
-        $outZip = Join-Path $env:TEMP $zipName
-        Write-Log -Level Info -Message "Downloading $tool..."
-        try {
-            Invoke-SafeDownload -Uri $url -OutFile $outZip | Out-Null
-        } catch {
-            Write-Log -Level Warn -Message "Failed: $tool ($($_.Exception.Message))"
-            $downloadFailures += $tool
+    foreach ($request in $toolRequests) {
+        $displayName = [string]$request.Display
+        $candidates = @($request.Candidates)
+        if (-not $candidates -or $candidates.Count -eq 0) { $candidates = @($displayName) }
+
+        $downloadedZip = $null
+        $downloadedAs = $null
+
+        foreach ($candidate in $candidates) {
+            $zipName = "$candidate.zip"
+            $url = "$baseUrl/$zipName"
+            $outZip = Join-Path $env:TEMP $zipName
+            Write-Log -Level Info -Message "Downloading $displayName (candidate: $candidate)..."
+            try {
+                Invoke-SafeDownload -Uri $url -OutFile $outZip | Out-Null
+                if (Test-Path -LiteralPath $outZip) {
+                    $downloadedZip = $outZip
+                    $downloadedAs = $candidate
+                    break
+                }
+            } catch { }
+        }
+
+        if (-not $downloadedZip) {
+            Write-Log -Level Warn -Message "Failed: $displayName"
+            $downloadFailures += $displayName
             continue
         }
-        if (-not (Test-Path -LiteralPath $outZip)) {
-            Write-Log -Level Warn -Message "Archive missing after download: $tool"
-            $downloadFailures += $tool
-            continue
-        }
-        $toolDir = Join-Path $installDir $tool
+
+        $toolDirName = ($displayName -replace '[\\/:*?"<>|]', '_')
+        $toolDir = Join-Path $installDir $toolDirName
         Ensure-Directory -Path $toolDir
         try {
-            Expand-Zip -ZipPath $outZip -Destination $toolDir
+            Expand-Zip -ZipPath $downloadedZip -Destination $toolDir
         } catch {
-            Write-Log -Level Warn -Message "Extraction failed for $tool: $($_.Exception.Message)"
-            $downloadFailures += $tool
+            Write-Log -Level Warn -Message "Extraction failed for $displayName: $($_.Exception.Message)"
+            $downloadFailures += $displayName
             continue
         } finally {
-            try { Remove-Item -Path $outZip -Force -ErrorAction SilentlyContinue } catch { }
+            try { if ($downloadedZip) { Remove-Item -Path $downloadedZip -Force -ErrorAction SilentlyContinue } } catch { }
         }
-        Write-Log -Level Success -Message "$tool ready."        
+        Write-Log -Level Success -Message "$displayName ready (download: $downloadedAs)."        
     }
 
     # Add root directory to PATH

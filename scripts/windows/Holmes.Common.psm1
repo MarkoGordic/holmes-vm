@@ -339,6 +339,18 @@ function Set-WindowsAppearance {
                     Set-RegistryDword -Path $personalizeM -Name 'SystemUsesLightTheme' -Value 1
                 }
             } catch { Write-Log -Level Warn -Message "Could not set machine default theme: $($_.Exception.Message)" }
+
+            # Default profile hive so newly created user profiles inherit the same mode.
+            $personalizeDefault = 'Registry::HKEY_USERS\\.DEFAULT\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'
+            try {
+                if ($DarkMode.IsPresent) {
+                    Set-RegistryDword -Path $personalizeDefault -Name 'AppsUseLightTheme' -Value 0
+                    Set-RegistryDword -Path $personalizeDefault -Name 'SystemUsesLightTheme' -Value 0
+                } else {
+                    Set-RegistryDword -Path $personalizeDefault -Name 'AppsUseLightTheme' -Value 1
+                    Set-RegistryDword -Path $personalizeDefault -Name 'SystemUsesLightTheme' -Value 1
+                }
+            } catch { Write-Log -Level Warn -Message "Could not set .DEFAULT profile theme: $($_.Exception.Message)" }
         }
 
         # Accent conversion
