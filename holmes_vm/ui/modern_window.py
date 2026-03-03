@@ -554,160 +554,182 @@ class ModernUI:
         self.root.mainloop()
     
     def show_selection(self, registry: List[Dict[str, Any]], on_start: Callable, preselected_ids: Optional[List[str]] = None):
-        """Show component selection dialog with animations and search"""
+        """Show compact component selection dialog with two-column layout, search, and collapsible categories"""
         dialog = ctk.CTkToplevel(self.root)
         dialog.title("Select Tools")
-        dialog.geometry("950x740")
+        dialog.geometry("1060x760")
         dialog.transient(self.root)
         dialog.grab_set()
-        
+
         # Configure grid
         dialog.grid_columnconfigure(0, weight=1)
         dialog.grid_rowconfigure(2, weight=1)
-        
-        # Header
-        header = ctk.CTkFrame(dialog, fg_color=COLOR_BG_SECONDARY, height=120)
-        header.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
+
+        # --- Compact Header ---
+        header = ctk.CTkFrame(dialog, fg_color=COLOR_BG_SECONDARY, height=70)
+        header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(0, weight=1)
         header.grid_columnconfigure(1, weight=0)
-        
+
         title = ctk.CTkLabel(
-            header,
-            text="🔍 Choose Your Installation Tools",
-            font=("Segoe UI", 20, "bold"),
-            text_color=COLOR_ACCENT_LIGHT
+            header, text="🔍 Select Tools",
+            font=("Segoe UI", 15, "bold"), text_color=COLOR_ACCENT_LIGHT
         )
-        title.grid(row=0, column=0, sticky='w', padx=20, pady=(20, 5))
-        
+        title.grid(row=0, column=0, sticky='w', padx=16, pady=(12, 2))
+
         subtitle = ctk.CTkLabel(
-            header,
-            text="Select forensics tools to install • You can add more later",
-            font=("Segoe UI", 11),
-            text_color=COLOR_MUTED
+            header, text="Choose forensics tools to install",
+            font=("Segoe UI", 10), text_color=COLOR_MUTED
         )
-        subtitle.grid(row=1, column=0, sticky='w', padx=20, pady=(0, 10))
-        
+        subtitle.grid(row=1, column=0, sticky='w', padx=16, pady=(0, 8))
+
         # Search bar
         search_var = ctk.StringVar(value="")
-        search_entry = ctk.CTkEntry(header, placeholder_text="Search tools…", textvariable=search_var, width=260)
-        search_entry.grid(row=0, column=1, rowspan=2, sticky='e', padx=20)
-        
+        search_entry = ctk.CTkEntry(
+            header, placeholder_text="Search…", textvariable=search_var,
+            width=220, height=28, font=("Segoe UI", 10)
+        )
+        search_entry.grid(row=0, column=1, rowspan=2, sticky='e', padx=16)
+
+        # --- Counter label (selected / total) ---
+        counter_frame = ctk.CTkFrame(dialog, fg_color=COLOR_BG, height=22)
+        counter_frame.grid(row=1, column=0, sticky="ew", padx=16, pady=(6, 0))
+        counter_frame.grid_columnconfigure(0, weight=1)
+
+        total_items = sum(len(cat.get('items', [])) for cat in registry)
+        counter_label = ctk.CTkLabel(
+            counter_frame, text=f"0 / {total_items} selected",
+            font=("Segoe UI", 10), text_color=COLOR_MUTED
+        )
+        counter_label.grid(row=0, column=0, sticky='w')
+
         # Scrollable frame for selection
         scroll_frame = ctk.CTkScrollableFrame(
-            dialog,
-            fg_color=COLOR_BG,
-            label_text="",
-            label_fg_color=COLOR_BG
+            dialog, fg_color=COLOR_BG, label_text="", label_fg_color=COLOR_BG
         )
-        scroll_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(10, 10))
+        scroll_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(4, 4))
+        # Two columns for items
         scroll_frame.grid_columnconfigure(0, weight=1)
-        
+
         # Build selection UI
         vars_map: Dict[str, Any] = {}
         cat_to_items: Dict[str, List[str]] = {}
         item_rows: List[tuple] = []  # (frame, searchable_text)
-        
-        for cat_idx, cat in enumerate(registry):
-            # Category header with expand/collapse
-            cat_frame = ctk.CTkFrame(scroll_frame, fg_color=COLOR_BG_SECONDARY)
-            cat_frame.grid(row=cat_idx*2, column=0, sticky="ew", pady=(10, 5), padx=5)
-            cat_frame.grid_columnconfigure(0, weight=0)
+
+        def _update_counter(*_a):
+            n = sum(1 for v in vars_map.values() if v.get())
+            counter_label.configure(text=f"{n} / {total_items} selected")
+
+        grid_row = 0
+        for cat in registry:
+            cat_key = cat.get('id', cat.get('name', ''))
+            items = cat.get('items', [])
+            count = len(items)
+            cat_to_items[cat_key] = []
+
+            # --- Category header row ---
+            cat_frame = ctk.CTkFrame(scroll_frame, fg_color=COLOR_BG_SECONDARY, corner_radius=6)
+            cat_frame.grid(row=grid_row, column=0, sticky="ew", pady=(6, 2), padx=2)
             cat_frame.grid_columnconfigure(1, weight=1)
-            cat_frame.grid_columnconfigure(2, weight=0)
-            
-            # Toggle button
+            grid_row += 1
+
             expanded = {'val': True}
             toggle_btn = ctk.CTkButton(
-                cat_frame, text="▾", width=28, height=28,
+                cat_frame, text="▾", width=22, height=22,
                 fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
-                text_color=COLOR_FG
+                text_color=COLOR_FG, font=("Segoe UI", 10)
             )
-            toggle_btn.grid(row=0, column=0, padx=(10, 8), pady=10)
-            
-            count = len(cat.get('items', []))
+            toggle_btn.grid(row=0, column=0, padx=(6, 4), pady=5)
+
             cat_label = ctk.CTkLabel(
-                cat_frame,
-                text=f"{cat['name']} ({count})",
-                font=("Segoe UI", 14, "bold"),
-                text_color=COLOR_FG_BRIGHT,
-                anchor="w"
+                cat_frame, text=f"{cat['name']}",
+                font=("Segoe UI", 11, "bold"), text_color=COLOR_FG_BRIGHT, anchor="w"
             )
-            cat_label.grid(row=0, column=1, sticky="w", pady=10)
-            
-            # Category actions (select/deselect all)
+            cat_label.grid(row=0, column=1, sticky="w", pady=5)
+
+            count_badge = ctk.CTkLabel(
+                cat_frame, text=f"{count}",
+                font=("Segoe UI", 9), text_color=COLOR_MUTED,
+                width=28
+            )
+            count_badge.grid(row=0, column=2, padx=(2, 4), pady=5)
+
             actions_frame = ctk.CTkFrame(cat_frame, fg_color="transparent")
-            actions_frame.grid(row=0, column=2, sticky="e", padx=10)
-            
+            actions_frame.grid(row=0, column=3, sticky="e", padx=6)
+
             def make_cat_toggle(ids: List[str], value: bool):
                 def _toggle():
                     for _id in ids:
                         if _id in vars_map:
                             vars_map[_id].set(value)
+                    _update_counter()
                 return _toggle
-            
-            cat_to_items[cat.get('id', f'cat_{cat_idx}')] = []
-            
+
+            # --- Items container (two-column grid) ---
             items_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-            items_frame.grid(row=cat_idx*2+1, column=0, sticky="ew", padx=10, pady=(0, 5))
+            items_frame.grid(row=grid_row, column=0, sticky="ew", padx=4, pady=(0, 2))
+            items_frame.grid_columnconfigure(0, weight=1)
             items_frame.grid_columnconfigure(1, weight=1)
-            
-            for item_idx, item in enumerate(cat['items']):
+            grid_row += 1
+
+            for item_idx, item in enumerate(items):
                 default_selected = (
                     preselected_ids is None and item.get('default', True)
                 ) or (
-                    preselected_ids and item['id'] in preselected_ids
+                    preselected_ids is not None and item['id'] in preselected_ids
                 )
-                
                 var = ctk.BooleanVar(value=default_selected)
+                var.trace_add('write', _update_counter)
                 vars_map[item['id']] = var
-                cat_to_items[cat.get('id', f'cat_{cat_idx}')].append(item['id'])
-                
+                cat_to_items[cat_key].append(item['id'])
+
+                col = item_idx % 2
+                row = item_idx // 2
+
                 item_frame = ctk.CTkFrame(items_frame, fg_color="transparent")
-                item_frame.grid(row=item_idx, column=0, sticky="ew", pady=3)
+                item_frame.grid(row=row, column=col, sticky="ew", pady=1, padx=(4, 8))
+                item_frame.grid_columnconfigure(0, weight=0)
                 item_frame.grid_columnconfigure(1, weight=1)
-                
+
+                # Compact checkbox
                 cb = ctk.CTkCheckBox(
-                    item_frame,
-                    text=item['name'],
-                    variable=var,
-                    fg_color=COLOR_ACCENT,
-                    text_color=COLOR_FG,
-                    font=("Segoe UI", 11)
+                    item_frame, text="", variable=var,
+                    fg_color=COLOR_ACCENT, width=18, height=18,
+                    checkbox_width=16, checkbox_height=16
                 )
-                cb.grid(row=0, column=0, sticky="w", padx=10)
-                
-                meta_texts: List[str] = []
-                if item.get('description'):
-                    meta_texts.append(f"• {item['description']}")
-                if item.get('desktop_group'):
-                    meta_texts.append(f"📁 Desktop: {item['desktop_group']}")
-                if meta_texts:
-                    desc = ctk.CTkLabel(
-                        item_frame,
-                        text="  ".join(meta_texts),
-                        font=("Segoe UI", 9),
-                        text_color=COLOR_MUTED,
-                        anchor="w"
-                    )
-                    desc.grid(row=0, column=1, sticky="w", padx=15)
-                
-                searchable = (item.get('name','') + ' ' + item.get('description','')).lower()
+                cb.grid(row=0, column=0, sticky="w", padx=(4, 2))
+
+                # Name + inline description
+                desc_text = item.get('description', '')
+                display_text = item['name']
+                if desc_text:
+                    display_text += f"  —  {desc_text}"
+
+                name_label = ctk.CTkLabel(
+                    item_frame, text=display_text,
+                    font=("Segoe UI", 10), text_color=COLOR_FG, anchor="w",
+                    wraplength=440
+                )
+                name_label.grid(row=0, column=1, sticky="w", padx=2)
+
+                # Make label click toggle checkbox
+                name_label.bind('<Button-1>', lambda e, v=var: v.set(not v.get()))
+
+                searchable = (item.get('name', '') + ' ' + desc_text).lower()
                 item_rows.append((item_frame, searchable))
-            
-            ids = cat_to_items[cat.get('id', f'cat_{cat_idx}')]
+
+            ids = cat_to_items[cat_key]
             ctk.CTkButton(
-                actions_frame, text="Select Category",
-                command=make_cat_toggle(ids, True),
+                actions_frame, text="All", command=make_cat_toggle(ids, True),
                 fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
-                text_color=COLOR_INFO, width=120, height=28
-            ).grid(row=0, column=0, padx=(0, 6))
+                text_color=COLOR_INFO, width=40, height=22, font=("Segoe UI", 9)
+            ).grid(row=0, column=0, padx=(0, 3))
             ctk.CTkButton(
-                actions_frame, text="Deselect",
-                command=make_cat_toggle(ids, False),
+                actions_frame, text="None", command=make_cat_toggle(ids, False),
                 fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
-                text_color=COLOR_WARN, width=90, height=28
+                text_color=COLOR_WARN, width=42, height=22, font=("Segoe UI", 9)
             ).grid(row=0, column=1)
-            
+
             def toggle_items(frame=items_frame, btn=toggle_btn, state=expanded):
                 state['val'] = not state['val']
                 if state['val']:
@@ -717,63 +739,64 @@ class ModernUI:
                     btn.configure(text='▸')
                     frame.grid_remove()
             toggle_btn.configure(command=toggle_items)
-        
-        # Footer
-        footer = ctk.CTkFrame(dialog, fg_color=COLOR_BG_SECONDARY, height=80)
-        footer.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
+
+        # Initial counter update
+        _update_counter()
+
+        # --- Compact Footer ---
+        footer = ctk.CTkFrame(dialog, fg_color=COLOR_BG_SECONDARY, height=50)
+        footer.grid(row=3, column=0, sticky="ew")
         footer.grid_columnconfigure(1, weight=1)
-        
-        # Left controls (always organize desktop; removed toggle option)
+
         left_buttons = ctk.CTkFrame(footer, fg_color="transparent")
-        left_buttons.grid(row=0, column=0, sticky="w", padx=20, pady=20)
-        
+        left_buttons.grid(row=0, column=0, sticky="w", padx=14, pady=10)
+
         def select_all():
             for v in vars_map.values():
                 v.set(True)
-        
+
         def deselect_all():
             for v in vars_map.values():
                 v.set(False)
-        
+
         ctk.CTkButton(
-            left_buttons, text="☑ Select All", command=select_all,
+            left_buttons, text="☑ All", command=select_all,
             fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
-            text_color=COLOR_FG_BRIGHT, width=120, height=35
+            text_color=COLOR_FG_BRIGHT, width=70, height=28, font=("Segoe UI", 10)
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            left_buttons, text="☐ None", command=deselect_all,
+            fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
+            text_color=COLOR_FG_BRIGHT, width=70, height=28, font=("Segoe UI", 10)
         ).pack(side="left", padx=(0, 10))
-        
-        ctk.CTkButton(
-            left_buttons, text="☐ Deselect All", command=deselect_all,
-            fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
-            text_color=COLOR_FG_BRIGHT, width=120, height=35
-        ).pack(side="left", padx=(0, 15))
-        
-        # Right buttons
+
         right_buttons = ctk.CTkFrame(footer, fg_color="transparent")
-        right_buttons.grid(row=0, column=1, sticky="e", padx=20, pady=20)
-        
+        right_buttons.grid(row=0, column=1, sticky="e", padx=14, pady=10)
+
         def cancel():
             dialog.destroy()
             self.root.destroy()
-        
+
         def start():
             selected = [k for k, v in vars_map.items() if v.get()]
             dialog.destroy()
             on_start(selected)
-        
+
         ctk.CTkButton(
-            right_buttons, text="✗ Cancel", command=cancel,
+            right_buttons, text="Cancel", command=cancel,
             fg_color=COLOR_BG_TERTIARY, hover_color=COLOR_MUTED_DARK,
-            text_color=COLOR_MUTED, width=100, height=35
-        ).pack(side="left", padx=(0, 10))
-        
+            text_color=COLOR_MUTED, width=80, height=28, font=("Segoe UI", 10)
+        ).pack(side="left", padx=(0, 8))
+
         ctk.CTkButton(
-            right_buttons, text="🔍 Start Installation", command=start,
+            right_buttons, text="▶ Install Selected", command=start,
             fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
-            text_color=COLOR_FG_BRIGHT, font=("Segoe UI", 12, "bold"),
-            width=180, height=35
+            text_color=COLOR_FG_BRIGHT, font=("Segoe UI", 11, "bold"),
+            width=150, height=30
         ).pack(side="left")
-        
-        # Search filter behavior
+
+        # Search filter
         def on_search(*_):
             q = (search_var.get() or '').lower().strip()
             for frame, text in item_rows:

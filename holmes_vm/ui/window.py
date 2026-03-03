@@ -81,17 +81,17 @@ class UI:
     def _setup_fonts(self):
         """Setup custom fonts for better typography"""
         try:
-            self.title_font = font.Font(family='Segoe UI', size=16, weight='bold')
-            self.header_font = font.Font(family='Segoe UI', size=12, weight='bold')
-            self.body_font = font.Font(family='Segoe UI', size=10)
-            self.small_font = font.Font(family='Segoe UI', size=9)
+            self.title_font = font.Font(family='Segoe UI', size=13, weight='bold')
+            self.header_font = font.Font(family='Segoe UI', size=10, weight='bold')
+            self.body_font = font.Font(family='Segoe UI', size=9)
+            self.small_font = font.Font(family='Segoe UI', size=8)
             self.mono_font = font.Font(family='Consolas', size=9)
         except Exception:
             # Fallback to default fonts
-            self.title_font = ('Arial', 16, 'bold')
-            self.header_font = ('Arial', 12, 'bold')
-            self.body_font = ('Arial', 10)
-            self.small_font = ('Arial', 9)
+            self.title_font = ('Arial', 13, 'bold')
+            self.header_font = ('Arial', 10, 'bold')
+            self.body_font = ('Arial', 9)
+            self.small_font = ('Arial', 8)
             self.mono_font = ('Courier', 9)
 
     def _setup_ui(self):
@@ -605,44 +605,60 @@ class UI:
         self.root.mainloop()
 
     def show_selection(self, registry: List[Dict[str, Any]], on_start: Callable, preselected_ids: Optional[List[str]] = None):
-        """Show component selection dialog with enhanced styling"""
+        """Show compact component selection dialog with two-column layout"""
         dlg = tk.Toplevel(self.root)
-        dlg.title('Select Investigation Tools')
+        dlg.title('Select Tools')
         dlg.configure(bg=COLOR_BG)
-        dlg.geometry('850x650')
+        dlg.geometry('1020x720')
         dlg.transient(self.root)
         dlg.grab_set()
-        
-        # Make dialog resizable
         dlg.resizable(True, True)
 
-        # === Header ===
-        header = tk.Frame(dlg, bg=COLOR_BG_SECONDARY, height=90)
+        # === Compact Header ===
+        header = tk.Frame(dlg, bg=COLOR_BG_SECONDARY, height=55)
         header.pack(fill='x')
         header.pack_propagate(False)
-        
+
         title = tk.Label(
-            header, text='🔍 Choose Your Investigation Tools',
-            fg=COLOR_ACCENT_LIGHT, bg=COLOR_BG_SECONDARY, 
-            font=self.title_font
+            header, text='🔍 Select Tools',
+            fg=COLOR_ACCENT_LIGHT, bg=COLOR_BG_SECONDARY,
+            font=self.header_font
         )
-        title.pack(pady=(15, 5))
-        
+        title.pack(side='left', padx=14, pady=12)
+
         subtitle = tk.Label(
-            header, text='Select forensics tools to install • You can add more tools later',
-            fg=COLOR_MUTED, bg=COLOR_BG_SECONDARY, 
-            font=self.body_font
+            header, text='Choose forensics tools to install',
+            fg=COLOR_MUTED, bg=COLOR_BG_SECONDARY,
+            font=self.small_font
         )
-        subtitle.pack(pady=(0, 10))
+        subtitle.pack(side='left', padx=(0, 10), pady=12)
+
+        # Search entry in header
+        search_var = tk.StringVar(value='')
+        search_entry = tk.Entry(
+            header, textvariable=search_var, bg=COLOR_BG_TERTIARY,
+            fg=COLOR_FG, insertbackground=COLOR_FG, font=self.body_font,
+            relief='flat', width=24
+        )
+        search_entry.pack(side='right', padx=14, pady=12)
+        tk.Label(header, text='Search:', fg=COLOR_MUTED, bg=COLOR_BG_SECONDARY,
+                 font=self.small_font).pack(side='right', pady=12)
+
+        # === Counter ===
+        total_items = sum(len(cat.get('items', [])) for cat in registry)
+        counter_var = tk.StringVar(value=f'0 / {total_items} selected')
+        counter_lbl = tk.Label(dlg, textvariable=counter_var, fg=COLOR_MUTED, bg=COLOR_BG,
+                               font=self.small_font)
+        counter_lbl.pack(anchor='w', padx=14, pady=(4, 0))
 
         # === Scrollable content ===
         container = tk.Frame(dlg, bg=COLOR_BG)
-        container.pack(fill='both', expand=True, padx=20, pady=15)
+        container.pack(fill='both', expand=True, padx=10, pady=4)
 
         canvas = tk.Canvas(container, bg=COLOR_BG, highlightthickness=0)
         vsb = tk.Scrollbar(container, orient='vertical', command=canvas.yview)
         frame = tk.Frame(canvas, bg=COLOR_BG)
-        
+
         frame.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.create_window((0, 0), window=frame, anchor='nw')
         canvas.configure(yscrollcommand=vsb.set)
@@ -651,123 +667,131 @@ class UI:
 
         # Build selection UI
         vars_map = {}
+        item_rows = []  # (widget, searchable_text)
+
+        def _update_counter(*_a):
+            n = sum(1 for v in vars_map.values() if v.get())
+            counter_var.set(f'{n} / {total_items} selected')
+
         for cat in registry:
-            # Category header with separator
-            cat_frame = tk.Frame(frame, bg=COLOR_BG_SECONDARY, padx=15, pady=10)
-            cat_frame.pack(fill='x', pady=(10, 5))
-            
+            # Compact category header
+            cat_frame = tk.Frame(frame, bg=COLOR_BG_SECONDARY, padx=8, pady=4)
+            cat_frame.pack(fill='x', pady=(5, 1))
+
+            items = cat.get('items', [])
+            count = len(items)
             cat_lbl = tk.Label(
-                cat_frame, text=cat['name'],
-                fg=COLOR_FG_BRIGHT, bg=COLOR_BG_SECONDARY, 
+                cat_frame, text=f"{cat['name']}  ({count})",
+                fg=COLOR_FG_BRIGHT, bg=COLOR_BG_SECONDARY,
                 font=self.header_font
             )
             cat_lbl.pack(anchor='w')
-            
-            if cat.get('description'):
-                desc = tk.Label(
-                    cat_frame, text=cat['description'],
-                    fg=COLOR_MUTED, bg=COLOR_BG_SECONDARY, 
-                    font=self.body_font
-                )
-                desc.pack(anchor='w', pady=(5, 0))
-            
-            # Items in category
+
+            # Two-column items grid
             items_frame = tk.Frame(frame, bg=COLOR_BG)
-            items_frame.pack(fill='x', padx=10, pady=5)
-                
-            for item in cat['items']:
+            items_frame.pack(fill='x', padx=4, pady=(0, 2))
+            items_frame.grid_columnconfigure(0, weight=1)
+            items_frame.grid_columnconfigure(1, weight=1)
+
+            for idx, item in enumerate(items):
                 default_selected = (
                     preselected_ids is None and item.get('default', True)
                 ) or (
-                    preselected_ids and item['id'] in preselected_ids
+                    preselected_ids is not None and item['id'] in preselected_ids
                 )
                 var = tk.BooleanVar(value=default_selected)
+                var.trace_add('write', _update_counter)
                 vars_map[item['id']] = var
-                
-                row = tk.Frame(items_frame, bg=COLOR_BG, padx=10, pady=5)
-                row.pack(fill='x')
-                
-                cb = tk.Checkbutton(
-                    row, text=item['name'], 
-                    bg=COLOR_BG, fg=COLOR_FG,
-                    variable=var, 
-                    activebackground=COLOR_BG,
-                    selectcolor=COLOR_BG_TERTIARY, 
-                    font=self.body_font,
-                    cursor='hand2'
-                )
-                cb.pack(side='left')
-                
-                if item.get('description'):
-                    meta = tk.Label(
-                        row, text=f"• {item['description']}",
-                        fg=COLOR_MUTED, bg=COLOR_BG, 
-                        font=self.small_font
-                    )
-                    meta.pack(side='left', padx=15)
 
-        # === Footer with action buttons ===
-        footer = tk.Frame(dlg, bg=COLOR_BG_SECONDARY, height=70)
+                col = idx % 2
+                row_num = idx // 2
+
+                cell = tk.Frame(items_frame, bg=COLOR_BG, padx=4, pady=1)
+                cell.grid(row=row_num, column=col, sticky='ew')
+
+                desc_text = item.get('description', '')
+                display = item['name']
+                if desc_text:
+                    display += f'  —  {desc_text}'
+
+                cb = tk.Checkbutton(
+                    cell, text=display,
+                    bg=COLOR_BG, fg=COLOR_FG, variable=var,
+                    activebackground=COLOR_BG, selectcolor=COLOR_BG_TERTIARY,
+                    font=self.body_font, cursor='hand2', anchor='w',
+                    wraplength=440
+                )
+                cb.pack(side='left', fill='x')
+
+                searchable = (item.get('name', '') + ' ' + desc_text).lower()
+                item_rows.append((cell, searchable))
+
+        _update_counter()
+
+        # === Compact Footer ===
+        footer = tk.Frame(dlg, bg=COLOR_BG_SECONDARY, height=48)
         footer.pack(fill='x')
         footer.pack_propagate(False)
-        
+
         btns = tk.Frame(footer, bg=COLOR_BG_SECONDARY)
-        btns.pack(fill='x', padx=20, pady=15)
+        btns.pack(fill='x', padx=14, pady=8)
 
         def select_all():
             for v in vars_map.values():
                 v.set(True)
-                
+
         def deselect_all():
             for v in vars_map.values():
                 v.set(False)
-        
-        # Left side buttons
+
         tk.Button(
-            btns, text='☑ Select All', command=select_all,
-            bg=COLOR_BG_TERTIARY, fg=COLOR_INFO, 
-            activebackground=COLOR_BG,
-            relief='flat', font=self.body_font,
-            cursor='hand2', padx=15, pady=8
+            btns, text='☑ All', command=select_all,
+            bg=COLOR_BG_TERTIARY, fg=COLOR_INFO,
+            activebackground=COLOR_BG, relief='flat',
+            font=self.small_font, cursor='hand2', padx=8, pady=4
         ).pack(side='left')
-        
+
         tk.Button(
-            btns, text='☐ Deselect All', command=deselect_all,
+            btns, text='☐ None', command=deselect_all,
             bg=COLOR_BG_TERTIARY, fg=COLOR_WARN,
-            activebackground=COLOR_BG,
-            relief='flat', font=self.body_font,
-            cursor='hand2', padx=15, pady=8
-        ).pack(side='left', padx=10)
+            activebackground=COLOR_BG, relief='flat',
+            font=self.small_font, cursor='hand2', padx=8, pady=4
+        ).pack(side='left', padx=6)
 
         def start():
             selected = [k for k, v in vars_map.items() if v.get()]
             dlg.destroy()
             on_start(selected)
-            
+
         def cancel():
             dlg.destroy()
             self.root.destroy()
-        
-        # Right side buttons    
+
         tk.Button(
-            btns, text='✗ Cancel', command=cancel,
+            btns, text='Cancel', command=cancel,
             bg=COLOR_BG_TERTIARY, fg=COLOR_MUTED,
-            activebackground=COLOR_BG,
-            relief='flat', font=self.body_font,
-            cursor='hand2', padx=15, pady=8
-        ).pack(side='right', padx=(10, 0))
-        
+            activebackground=COLOR_BG, relief='flat',
+            font=self.small_font, cursor='hand2', padx=10, pady=4
+        ).pack(side='right', padx=(6, 0))
+
         start_btn = tk.Button(
-            btns, text='🔍 Start Investigation', command=start,
+            btns, text='▶ Install Selected', command=start,
             bg=COLOR_ACCENT, fg=COLOR_FG_BRIGHT,
-            activebackground=COLOR_ACCENT_DARK,
-            relief='flat', font=self.header_font,
-            cursor='hand2', padx=20, pady=8
+            activebackground=COLOR_ACCENT_DARK, relief='flat',
+            font=self.header_font, cursor='hand2', padx=14, pady=4
         )
         start_btn.pack(side='right')
-        
-        # Bind hover effect to start button
         self._bind_button_hover(start_btn, COLOR_ACCENT, COLOR_ACCENT_DARK)
+
+        # Search filter
+        def on_search(*_):
+            q = (search_var.get() or '').lower().strip()
+            for widget, text in item_rows:
+                if not q or q in text:
+                    widget.grid()
+                else:
+                    widget.grid_remove()
+        search_var.trace_add('write', on_search)
 
 
 def is_tk_available() -> bool:

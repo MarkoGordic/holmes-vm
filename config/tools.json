@@ -1,7 +1,7 @@
 {
   "versions": {
     "wireshark": null,
-    "dotnet": null,
+    "dotnet6": null,
     "dotnet9": null
   },
   "categories": [
@@ -37,9 +37,80 @@
       ]
     },
     {
-      "id": "editors",
-      "name": "Editors & Data",
-      "description": "General editing and data viewing tools.",
+      "id": "runtimes",
+      "name": "Runtime Dependencies",
+      "description": "Framework runtimes required by tooling.",
+      "items": [
+        {
+          "id": "dotnet35",
+          "name": ".NET Framework 3.5",
+          "description": "Legacy framework for older forensic tools",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet3.5"
+        },
+        {
+          "id": "dotnet48",
+          "name": ".NET Framework 4.8",
+          "description": "Required by RegRipper, many legacy tools",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-4.8-sdk"
+        },
+        {
+          "id": "dotnet6",
+          "name": ".NET 6 Desktop Runtime",
+          "description": "Required by many Windows forensic tools",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-6.0-desktopruntime"
+        },
+        {
+          "id": "dotnet7",
+          "name": ".NET 7 Desktop Runtime",
+          "description": "Required by some newer forensic tools",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-7.0-desktopruntime"
+        },
+        {
+          "id": "dotnet8",
+          "name": ".NET 8 Desktop Runtime",
+          "description": "Required by latest EZ Tools and modern apps",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-8.0-desktopruntime"
+        },
+        {
+          "id": "dotnet9",
+          "name": ".NET 9 Desktop Runtime",
+          "description": "Required for newest EZ Tools (net9)",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "dotnet-9.0-desktopruntime"
+        },
+        {
+          "id": "vcredist",
+          "name": "Visual C++ Redistributable",
+          "description": "Required by many native forensic tools",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "vcredist140"
+        },
+        {
+          "id": "java",
+          "name": "OpenJDK 21 (Temurin)",
+          "description": "Required by Ghidra, Autopsy, and other Java tools",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "temurin21jre"
+        }
+      ]
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "description": "General-purpose productivity and file tools.",
       "items": [
         {
           "id": "vscode",
@@ -59,6 +130,57 @@
           }
         },
         {
+          "id": "notepadpp",
+          "name": "Notepad++",
+          "description": "Advanced text editor for log/config review",
+          "desktop_group": "Editors",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "notepadplusplus",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Notepad++",
+            "exe_candidates": [
+              "C:\\Program Files\\Notepad++\\notepad++.exe",
+              "C:\\Program Files (x86)\\Notepad++\\notepad++.exe"
+            ]
+          }
+        },
+        {
+          "id": "7zip",
+          "name": "7-Zip",
+          "description": "File archiver for zip, rar, 7z, tar, etc.",
+          "desktop_group": "Utilities",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "7zip",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "7-Zip",
+            "exe_candidates": [
+              "C:\\Program Files\\7-Zip\\7zFM.exe",
+              "C:\\Program Files (x86)\\7-Zip\\7zFM.exe"
+            ]
+          }
+        },
+        {
+          "id": "everything",
+          "name": "Everything Search",
+          "description": "Instant file search by name across all drives",
+          "desktop_group": "Utilities",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "everything",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "Everything",
+            "exe_candidates": [
+              "C:\\Program Files\\Everything\\Everything.exe",
+              "C:\\Program Files (x86)\\Everything\\Everything.exe"
+            ]
+          }
+        },
+        {
           "id": "sqlitebrowser",
           "name": "DB Browser for SQLite",
           "description": "SQLite database browser",
@@ -74,6 +196,39 @@
             "search_roots": [
               "C:\\Program Files\\DB Browser for SQLite",
               "C:\\Program Files (x86)\\DB Browser for SQLite"
+            ]
+          }
+        },
+        {
+          "id": "cyberchef",
+          "name": "CyberChef",
+          "description": "Data decoding/encoding Swiss army knife (offline)",
+          "desktop_group": "Utilities",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-cyberchef.ps1",
+          "function_name": "Install-CyberChef",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "CyberChef",
+            "exe_name": "CyberChef.html",
+            "search_roots": ["C:\\Tools\\CyberChef"]
+          }
+        },
+        {
+          "id": "putty",
+          "name": "PuTTY",
+          "description": "SSH/Telnet client",
+          "desktop_group": "Utilities",
+          "default": false,
+          "installer_type": "chocolatey",
+          "package_name": "putty",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "PuTTY",
+            "exe_candidates": [
+              "C:\\Program Files\\PuTTY\\putty.exe",
+              "C:\\Program Files (x86)\\PuTTY\\putty.exe"
             ]
           }
         }
@@ -150,10 +305,66 @@
       ]
     },
     {
+      "id": "hex_editors",
+      "name": "Hex Editors & Viewers",
+      "description": "Binary file editors and hex viewers.",
+      "items": [
+        {
+          "id": "hxd",
+          "name": "HxD",
+          "description": "Fast hex editor with disk/memory editing",
+          "desktop_group": "Hex Editors",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "hxd",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "HxD",
+            "exe_candidates": [
+              "C:\\Program Files\\HxD\\HxD.exe",
+              "C:\\Program Files (x86)\\HxD\\HxD.exe"
+            ]
+          }
+        },
+        {
+          "id": "imhex",
+          "name": "ImHex",
+          "description": "Pattern-based hex editor with data processor",
+          "desktop_group": "Hex Editors",
+          "default": false,
+          "installer_type": "chocolatey",
+          "package_name": "imhex",
+          "shortcut": {
+            "mode": "exe_candidates",
+            "display_name": "ImHex",
+            "exe_candidates": [
+              "C:\\Program Files\\ImHex\\imhex.exe"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "reverse",
       "name": "Reverse Engineering",
       "description": "Tools for binary and .NET analysis.",
       "items": [
+        {
+          "id": "ghidra",
+          "name": "Ghidra",
+          "description": "NSA reverse engineering suite",
+          "desktop_group": "Reverse Engineering",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-ghidra.ps1",
+          "function_name": "Install-Ghidra",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Ghidra",
+            "exe_name": "ghidraRun.bat",
+            "search_roots": ["C:\\Tools\\Ghidra"]
+          }
+        },
         {
           "id": "dnspyex",
           "name": "DnSpyEx",
@@ -175,8 +386,24 @@
           }
         },
         {
+          "id": "ilspy",
+          "name": "ILSpy",
+          "description": ".NET decompiler",
+          "desktop_group": "Reverse Engineering",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-ilspy.ps1",
+          "function_name": "Install-ILSpy",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "ILSpy",
+            "exe_name": "ILSpy.exe",
+            "search_roots": ["C:\\Tools\\ILSpy"]
+          }
+        },
+        {
           "id": "cffexplorer",
-          "name": "CFF Explorer (Explorer Suite)",
+          "name": "CFF Explorer",
           "description": "PE editor and analysis tool",
           "desktop_group": "Reverse Engineering",
           "default": true,
@@ -196,43 +423,43 @@
           }
         },
         {
-          "id": "ilspy",
-          "name": "ILSpy",
-          "description": ".NET decompiler",
+          "id": "die",
+          "name": "Detect It Easy (DiE)",
+          "description": "Packer/compiler/cryptor detector for PE files",
           "desktop_group": "Reverse Engineering",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "scripts/windows/install-ilspy.ps1",
-          "function_name": "Install-ILSpy",
+          "script_path": "scripts/windows/install-die.ps1",
+          "function_name": "Install-DetectItEasy",
           "shortcut": {
             "mode": "search_exe",
-            "display_name": "ILSpy",
-            "exe_name": "ILSpy.exe",
-            "search_roots": ["C:\\Tools\\ILSpy"]
+            "display_name": "Detect It Easy",
+            "exe_name": "die.exe",
+            "search_roots": ["C:\\Tools\\DetectItEasy"]
           }
         },
         {
-          "id": "ghidra",
-          "name": "Ghidra",
-          "description": "Software reverse engineering suite",
+          "id": "x64dbg",
+          "name": "x64dbg",
+          "description": "Open-source x64/x32 debugger for Windows",
           "desktop_group": "Reverse Engineering",
-          "default": true,
+          "default": false,
           "installer_type": "powershell",
-          "script_path": "scripts/windows/install-ghidra.ps1",
-          "function_name": "Install-Ghidra",
+          "script_path": "scripts/windows/install-x64dbg.ps1",
+          "function_name": "Install-x64dbg",
           "shortcut": {
             "mode": "search_exe",
-            "display_name": "Ghidra",
-            "exe_name": "ghidraRun.bat",
-            "search_roots": ["C:\\Tools\\Ghidra"]
+            "display_name": "x64dbg",
+            "exe_name": "x96dbg.exe",
+            "search_roots": ["C:\\Tools\\x64dbg"]
           }
         }
       ]
     },
     {
       "id": "malware_static",
-      "name": "Malware Static Analysis",
-      "description": "Initial triage and PE inspection tools.",
+      "name": "Malware Analysis - Static",
+      "description": "PE triage, YARA scanning, and document analysis.",
       "items": [
         {
           "id": "pestudio",
@@ -256,6 +483,125 @@
               "C:\\ProgramData\\chocolatey\\bin",
               "C:\\Tools\\pestudio"
             ]
+          }
+        },
+        {
+          "id": "pebear",
+          "name": "PE-bear",
+          "description": "PE file reverse engineering tool",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-pebear.ps1",
+          "function_name": "Install-PEBear",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "PE-bear",
+            "exe_name": "PE-bear.exe",
+            "search_roots": ["C:\\Tools\\PE-bear"]
+          }
+        },
+        {
+          "id": "yara",
+          "name": "YARA",
+          "description": "Pattern matching for malware researchers",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-yara.ps1",
+          "function_name": "Install-YARA",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "YARA",
+            "exe_name": "yara64.exe",
+            "search_roots": ["C:\\Tools\\YARA"]
+          }
+        },
+        {
+          "id": "loki",
+          "name": "Loki IOC Scanner",
+          "description": "YARA/hash-based IOC scanner",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-loki.ps1",
+          "function_name": "Install-Loki",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Loki",
+            "exe_name": "loki.exe",
+            "search_roots": ["C:\\Tools\\Loki"]
+          }
+        },
+        {
+          "id": "floss",
+          "name": "FLOSS",
+          "description": "Mandiant obfuscated string solver",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-floss.ps1",
+          "function_name": "Install-FLOSS",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "FLOSS",
+            "exe_name": "floss.exe",
+            "search_roots": ["C:\\Tools\\FLOSS"]
+          }
+        },
+        {
+          "id": "capa",
+          "name": "capa",
+          "description": "Mandiant tool to identify PE capabilities",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-capa.ps1",
+          "function_name": "Install-Capa",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "capa",
+            "exe_name": "capa.exe",
+            "search_roots": ["C:\\Tools\\capa"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "malware_dynamic",
+      "name": "Malware Analysis - Dynamic",
+      "description": "Process monitoring, network faking, and sandbox tools.",
+      "items": [
+        {
+          "id": "fakenet",
+          "name": "FakeNet-NG",
+          "description": "Dynamic network analysis tool for malware",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-fakenet.ps1",
+          "function_name": "Install-FakeNet",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "FakeNet-NG",
+            "exe_name": "fakenet.exe",
+            "search_roots": ["C:\\Tools\\FakeNet-NG"]
+          }
+        },
+        {
+          "id": "apatedns",
+          "name": "ApateDNS",
+          "description": "Simulated DNS service for malware analysis",
+          "desktop_group": "Malware Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-apatedns.ps1",
+          "function_name": "Install-ApateDNS",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "ApateDNS",
+            "exe_name": "ApateDNS.exe",
+            "search_roots": ["C:\\Tools\\ApateDNS"]
           }
         }
       ]
@@ -319,52 +665,262 @@
               "C:\\Program Files (x86)\\Brimdata\\Zui\\Zui.exe"
             ]
           }
-        },
+        }
+      ]
+    },
+    {
+      "id": "memory_forensics",
+      "name": "Memory Forensics",
+      "description": "RAM dump analysis and memory forensics tools.",
+      "items": [
         {
-          "id": "apatedns",
-          "name": "ApateDNS",
-          "description": "Simulated DNS service for malware analysis",
-          "desktop_group": "Network Forensics",
+          "id": "volatility3",
+          "name": "Volatility 3",
+          "description": "Memory forensics framework (Python 3)",
+          "desktop_group": "Memory Forensics",
           "default": true,
           "installer_type": "powershell",
-          "script_path": "scripts/windows/install-apatedns.ps1",
-          "function_name": "Install-ApateDNS",
+          "script_path": "scripts/windows/install-volatility3.ps1",
+          "function_name": "Install-Volatility3"
+        },
+        {
+          "id": "memprocfs",
+          "name": "MemProcFS",
+          "description": "Mount memory dumps as virtual filesystems",
+          "desktop_group": "Memory Forensics",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-memprocfs.ps1",
+          "function_name": "Install-MemProcFS",
           "shortcut": {
             "mode": "search_exe",
-            "display_name": "ApateDNS",
-            "exe_name": "ApateDNS.exe",
-            "search_roots": ["C:\\Tools\\ApateDNS"]
+            "display_name": "MemProcFS",
+            "exe_name": "MemProcFS.exe",
+            "search_roots": ["C:\\Tools\\MemProcFS"]
           }
         }
       ]
     },
     {
-      "id": "runtimes",
-      "name": "Runtime Dependencies",
-      "description": "Framework runtimes required by tooling.",
+      "id": "disk_forensics",
+      "name": "Disk & Artifact Forensics",
+      "description": "Filesystem imaging, artifact analysis, and triage.",
       "items": [
         {
-          "id": "dotnet",
-          "name": ".NET 6 Desktop Runtime",
-          "description": "Required for many Windows forensic tools",
+          "id": "autopsy",
+          "name": "Autopsy",
+          "description": "Digital forensics platform",
+          "desktop_group": "Forensics",
           "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "dotnet-6.0-desktopruntime"
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-autopsy.ps1",
+          "function_name": "Install-Autopsy",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Autopsy",
+            "exe_name": "Autopsy64.exe",
+            "search_roots": [
+              "C:\\Tools\\Autopsy",
+              "C:\\Program Files\\Autopsy",
+              "C:\\Program Files (x86)\\Autopsy"
+            ]
+          }
         },
         {
-          "id": "dotnet9",
-          "name": ".NET 9 Desktop Runtime",
-          "description": "Required for newer EZ Tools (net9)",
+          "id": "ftkimager",
+          "name": "FTK Imager",
+          "description": "Forensic disk imaging and evidence preview",
+          "desktop_group": "Forensics",
           "default": true,
-          "installer_type": "chocolatey",
-          "package_name": "dotnet-9.0-desktopruntime"
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-ftkimager.ps1",
+          "function_name": "Install-FTKImager",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "FTK Imager",
+            "exe_name": "FTK Imager.exe",
+            "search_roots": [
+              "C:\\Tools\\FTK Imager",
+              "C:\\Program Files\\AccessData\\FTK Imager",
+              "C:\\Program Files (x86)\\AccessData\\FTK Imager"
+            ]
+          }
+        },
+        {
+          "id": "arsenalimager",
+          "name": "Arsenal Image Mounter",
+          "description": "Mount disk images with write-blocking",
+          "desktop_group": "Forensics",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-arsenalimager.ps1",
+          "function_name": "Install-ArsenalImageMounter",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Arsenal Image Mounter",
+            "exe_name": "ArsenalImageMounter.exe",
+            "search_roots": [
+              "C:\\Tools\\ArsenalImageMounter",
+              "C:\\Program Files\\Arsenal Image Mounter"
+            ]
+          }
+        },
+        {
+          "id": "shadowexplorer",
+          "name": "ShadowExplorer",
+          "description": "Browse files from Volume Shadow Copies",
+          "desktop_group": "Forensics",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-shadowexplorer.ps1",
+          "function_name": "Install-ShadowExplorer",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "ShadowExplorer",
+            "exe_name": "ShadowExplorer.exe",
+            "search_roots": [
+              "C:\\Tools\\ShadowExplorer",
+              "C:\\Program Files\\ShadowExplorer",
+              "C:\\Program Files (x86)\\ShadowExplorer"
+            ]
+          }
+        },
+        {
+          "id": "kape",
+          "name": "KAPE",
+          "description": "Kroll Artifact Parser and Extractor - triage",
+          "desktop_group": "Forensics",
+          "default": false,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-kape.ps1",
+          "function_name": "Install-KAPE",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "KAPE",
+            "exe_name": "kape.exe",
+            "search_roots": ["C:\\Tools\\KAPE"]
+          }
         }
       ]
     },
     {
-      "id": "forensics",
+      "id": "log_analysis",
+      "name": "Log & Event Analysis",
+      "description": "Windows event log, timeline, and log analysis tools.",
+      "items": [
+        {
+          "id": "chainsaw",
+          "name": "Chainsaw",
+          "description": "Rapidly search through Windows event logs",
+          "desktop_group": "Log Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-chainsaw.ps1",
+          "function_name": "Install-Chainsaw",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Chainsaw",
+            "exe_name": "chainsaw.exe",
+            "search_roots": ["C:\\Tools\\Chainsaw"]
+          }
+        },
+        {
+          "id": "hayabusa",
+          "name": "Hayabusa",
+          "description": "Event log fast forensics timeline generator",
+          "desktop_group": "Log Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-hayabusa.ps1",
+          "function_name": "Install-Hayabusa",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "Hayabusa",
+            "exe_name": "hayabusa.exe",
+            "search_roots": ["C:\\Tools\\Hayabusa"]
+          }
+        },
+        {
+          "id": "fulleventlogview",
+          "name": "FullEventLogView",
+          "description": "NirSoft event log viewer for all log types",
+          "desktop_group": "Log Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-fulleventlogview.ps1",
+          "function_name": "Install-FullEventLogView",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "FullEventLogView",
+            "exe_name": "FullEventLogView.exe",
+            "search_roots": ["C:\\Tools\\FullEventLogView"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "hash_tools",
+      "name": "Hashing & Verification",
+      "description": "File hashing, integrity checking, and hash lookup.",
+      "items": [
+        {
+          "id": "hashmyfiles",
+          "name": "HashMyFiles",
+          "description": "NirSoft file hash calculator (MD5/SHA1/SHA256)",
+          "desktop_group": "Utilities",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-hashmyfiles.ps1",
+          "function_name": "Install-HashMyFiles",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "HashMyFiles",
+            "exe_name": "HashMyFiles.exe",
+            "search_roots": ["C:\\Tools\\HashMyFiles"]
+          }
+        },
+        {
+          "id": "hashcheck",
+          "name": "HashCheck Shell Extension",
+          "description": "Explorer context menu hash verification",
+          "desktop_group": "Utilities",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "hashcheck"
+        }
+      ]
+    },
+    {
+      "id": "document_analysis",
+      "name": "Document & Script Analysis",
+      "description": "Office, PDF, and script analysis tools.",
+      "items": [
+        {
+          "id": "oletools",
+          "name": "oletools (Python)",
+          "description": "Analyze OLE/MS Office files for macros",
+          "desktop_group": "Document Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-oletools.ps1",
+          "function_name": "Install-Oletools"
+        },
+        {
+          "id": "pdftools",
+          "name": "pdf-parser & pdfid",
+          "description": "Didier Stevens PDF analysis tools",
+          "desktop_group": "Document Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-pdftools.ps1",
+          "function_name": "Install-PDFTools"
+        }
+      ]
+    },
+    {
+      "id": "forensics_bundles",
       "name": "Forensics Bundles",
-      "description": "Specialized forensic tooling.",
+      "description": "Comprehensive forensic tool suites.",
       "items": [
         {
           "id": "sysinternals",
@@ -416,25 +972,9 @@
           }
         },
         {
-          "id": "chainsaw",
-          "name": "Chainsaw",
-          "description": "Rapidly search and hunt through Windows event logs",
-          "desktop_group": "Bundles",
-          "default": true,
-          "installer_type": "powershell",
-          "script_path": "scripts/windows/install-chainsaw.ps1",
-          "function_name": "Install-Chainsaw",
-          "shortcut": {
-            "mode": "search_exe",
-            "display_name": "Chainsaw",
-            "exe_name": "chainsaw.exe",
-            "search_roots": ["C:\\Tools\\Chainsaw"]
-          }
-        },
-        {
           "id": "nirsoft_browser",
           "name": "NirSoft Web Browser Tools",
-          "description": "Collection of browser history, cache, cookie and credential viewers",
+          "description": "Browser history/cache/cookie/credential viewers",
           "desktop_group": "Web Browsers",
           "desktop_keywords": ["nirsoft", "browsinghistoryview", "sessionhistory", "esedatabaseview"],
           "default": true,
@@ -452,79 +992,88 @@
     },
     {
       "id": "personalization",
-      "name": "Personalization",
-      "description": "Make the VM look and feel great.",
+      "name": "Personalization & VM Config",
+      "description": "VM appearance, Explorer tweaks, and forensic-ready config.",
       "items": [
         {
           "id": "wallpaper",
           "name": "Holmes wallpaper",
-          "description": "Custom wallpaper for forensics VM",
+          "description": "Custom forensics VM wallpaper",
           "default": true,
           "installer_type": "function",
           "installer": "install_wallpaper"
         },
         {
           "id": "appearance",
-          "name": "Windows appearance tweaks",
-          "description": "Dark mode and visual customizations",
+          "name": "Dark mode & accent color",
+          "description": "Dark mode with teal accent color",
           "default": true,
           "installer_type": "function",
           "installer": "set_appearance"
         },
         {
+          "id": "explorer_tweaks",
+          "name": "Explorer forensic tweaks",
+          "description": "Show extensions, hidden files, disable search highlights",
+          "default": true,
+          "installer_type": "function",
+          "installer": "explorer_forensic_tweaks"
+        },
+        {
+          "id": "disable_defender_submit",
+          "name": "Disable Defender sample submission",
+          "description": "Prevent auto-submission of malware samples",
+          "default": true,
+          "installer_type": "function",
+          "installer": "disable_defender_submit"
+        },
+        {
+          "id": "set_utc",
+          "name": "Set timezone to UTC",
+          "description": "Forensic best practice: timestamps in UTC",
+          "default": true,
+          "installer_type": "function",
+          "installer": "set_timezone_utc"
+        },
+        {
+          "id": "disable_sleep",
+          "name": "Disable sleep & screensaver",
+          "description": "Prevent interruptions during long analysis",
+          "default": true,
+          "installer_type": "function",
+          "installer": "disable_sleep_screensaver"
+        },
+        {
+          "id": "disable_hibernation",
+          "name": "Disable hibernation",
+          "description": "Free disk space, prevent hiberfil.sys",
+          "default": true,
+          "installer_type": "function",
+          "installer": "disable_hibernation"
+        },
+        {
+          "id": "enable_longpaths",
+          "name": "Enable Win32 long paths",
+          "description": "Support paths longer than 260 characters",
+          "default": true,
+          "installer_type": "function",
+          "installer": "enable_long_paths"
+        },
+        {
+          "id": "create_tools_dir",
+          "name": "Create C:\\Tools structure",
+          "description": "Standard directory for portable forensic tools",
+          "default": true,
+          "installer_type": "function",
+          "installer": "create_tools_directory"
+        },
+        {
           "id": "desktop_grouping",
-          "name": "Organize Desktop Shortcuts",
-          "description": "Group application shortcuts into category folders on Desktop",
+          "name": "Organize desktop shortcuts",
+          "description": "Group shortcuts into category folders",
           "default": true,
           "installer_type": "function",
           "installer": "organize_desktop"
-        }
-      ]
-    },
-    {
-      "id": "disk_forensics",
-      "name": "Disk & Artifact Forensics",
-      "description": "Filesystem and artifact analysis suites.",
-      "items": [
-        {
-          "id": "autopsy",
-          "name": "Autopsy",
-          "description": "Digital forensics platform",
-          "desktop_group": "Forensics",
-          "default": true,
-          "installer_type": "powershell",
-          "script_path": "scripts/windows/install-autopsy.ps1",
-          "function_name": "Install-Autopsy",
-          "shortcut": {
-            "mode": "search_exe",
-            "display_name": "Autopsy",
-            "exe_name": "Autopsy64.exe",
-            "search_roots": [
-              "C:\\Tools\\Autopsy",
-              "C:\\Program Files\\Autopsy",
-              "C:\\Program Files (x86)\\Autopsy"
-            ]
-          }
-        },
-        {
-          "id": "shadowexplorer",
-          "name": "ShadowExplorer",
-          "description": "Browse and restore files from Volume Shadow Copies",
-          "desktop_group": "Forensics",
-          "default": true,
-          "installer_type": "powershell",
-          "script_path": "scripts/windows/install-shadowexplorer.ps1",
-          "function_name": "Install-ShadowExplorer",
-          "shortcut": {
-            "mode": "search_exe",
-            "display_name": "ShadowExplorer",
-            "exe_name": "ShadowExplorer.exe",
-            "search_roots": [
-              "C:\\Tools\\ShadowExplorer",
-              "C:\\Program Files\\ShadowExplorer",
-              "C:\\Program Files (x86)\\ShadowExplorer"
-            ]
-          }
         }
       ]
     }

@@ -403,6 +403,253 @@ class OrganizeDesktopInstaller(BaseInstaller):
         return True
 
 
+@register_installer('explorer_forensic_tweaks')
+class ExplorerForensicTweaksInstaller(BaseInstaller):
+    """Apply Explorer settings for forensic analysis readiness."""
+
+    def get_name(self) -> str:
+        return "Explorer forensic tweaks"
+
+    def install(self) -> bool:
+        self.logger.info('Applying Explorer forensic tweaks...')
+
+        tweaks = [
+            # Show file extensions
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "HideFileExt", 0),
+            # Show hidden files
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "Hidden", 1),
+            # Show protected OS files
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "ShowSuperHidden", 1),
+            # Show full path in title bar
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CabinetState", "FullPath", 1),
+            # Disable search highlights / Bing search
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "IsDynamicSearchBoxEnabled", 0),
+            # Launch File Explorer to This PC instead of Quick Access
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "LaunchTo", 1),
+            # Show status bar
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "ShowStatusBar", 1),
+            # Disable Cortana / search bar on taskbar (show icon only)
+            ("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search", "SearchboxTaskbarMode", 1),
+        ]
+
+        ps_lines = []
+        for path, name, value in tweaks:
+            ps_lines.append(
+                f"if (-not (Test-Path '{path}')) {{ New-Item -Path '{path}' -Force | Out-Null }}; "
+                f"Set-ItemProperty -Path '{path}' -Name '{name}' -Value {value} -Type DWord -Force"
+            )
+        # Restart Explorer to apply
+        ps_lines.append("Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue")
+
+        code = import_common_module_and(
+            "; ".join(ps_lines),
+            self.config.module_path
+        )
+
+        if self.is_what_if_mode():
+            self.logger.info("[what-if] Would apply Explorer forensic tweaks")
+            return True
+
+        res = run_powershell(code)
+        if res.returncode != 0:
+            self.logger.warn(f"Explorer tweaks returned {res.returncode}: {res.stderr.strip()}")
+            return False
+        self.logger.success('Explorer forensic tweaks applied.')
+        return True
+
+
+@register_installer('disable_defender_submit')
+class DisableDefenderSubmitInstaller(BaseInstaller):
+    """Disable Windows Defender automatic sample submission."""
+
+    def get_name(self) -> str:
+        return "Disable Defender sample submission"
+
+    def install(self) -> bool:
+        self.logger.info('Disabling Defender automatic sample submission...')
+
+        ps = (
+            "Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue; "
+            "$p = 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Spynet'; "
+            "if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }; "
+            "Set-ItemProperty -Path $p -Name 'SubmitSamplesConsent' -Value 2 -Type DWord -Force; "
+            "Set-ItemProperty -Path $p -Name 'SpynetReporting' -Value 0 -Type DWord -Force"
+        )
+        code = import_common_module_and(ps, self.config.module_path)
+
+        if self.is_what_if_mode():
+            self.logger.info("[what-if] Would disable Defender sample submission")
+            return True
+
+        res = run_powershell(code)
+        if res.returncode != 0:
+            self.logger.warn(f"Defender config returned {res.returncode}: {res.stderr.strip()}")
+            return False
+        self.logger.success('Defender automatic sample submission disabled.')
+        return True
+
+
+@register_installer('set_timezone_utc')
+class SetTimezoneUTCInstaller(BaseInstaller):
+    """Set system timezone to UTC (forensic best practice)."""
+
+    def get_name(self) -> str:
+        return "Set timezone to UTC"
+
+    def install(self) -> bool:
+        self.logger.info('Setting timezone to UTC...')
+
+        code = import_common_module_and(
+            "tzutil /s 'UTC'; Write-Host 'Timezone set to UTC'",
+            self.config.module_path
+        )
+
+        if self.is_what_if_mode():
+            self.logger.info("[what-if] Would set timezone to UTC")
+            return True
+
+        res = run_powershell(code)
+        if res.returncode != 0:
+            self.logger.warn(f"Timezone config returned {res.returncode}: {res.stderr.strip()}")
+            return False
+        self.logger.success('Timezone set to UTC.')
+        return True
+
+
+@register_installer('disable_sleep_screensaver')
+class DisableSleepScreensaverInstaller(BaseInstaller):
+    """Disable sleep, screen timeout, and screensaver."""
+
+    def get_name(self) -> str:
+        return "Disable sleep & screensaver"
+
+    def install(self) -> bool:
+        self.logger.info('Disabling sleep, screen timeout, and screensaver...')
+
+        ps = (
+            "powercfg /change monitor-timeout-ac 0; "
+            "powercfg /change monitor-timeout-dc 0; "
+            "powercfg /change standby-timeout-ac 0; "
+            "powercfg /change standby-timeout-dc 0; "
+            # Disable screensaver via registry
+            "Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaveActive' -Value '0' -Force; "
+            "Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaverIsSecure' -Value '0' -Force"
+        )
+        code = import_common_module_and(ps, self.config.module_path)
+
+        if self.is_what_if_mode():
+            self.logger.info("[what-if] Would disable sleep and screensaver")
+            return True
+
+        res = run_powershell(code)
+        if res.returncode != 0:
+            self.logger.warn(f"Sleep/screensaver config returned {res.returncode}: {res.stderr.strip()}")
+            return False
+        self.logger.success('Sleep, screen timeout, and screensaver disabled.')
+        return True
+
+
+@register_installer('disable_hibernation')
+class DisableHibernationInstaller(BaseInstaller):
+    """Disable hibernation to free disk space."""
+
+    def get_name(self) -> str:
+        return "Disable hibernation"
+
+    def install(self) -> bool:
+        self.logger.info('Disabling hibernation...')
+
+        code = import_common_module_and(
+            "powercfg /hibernate off; Write-Host 'Hibernation disabled'",
+            self.config.module_path
+        )
+
+        if self.is_what_if_mode():
+            self.logger.info("[what-if] Would disable hibernation")
+            return True
+
+        res = run_powershell(code)
+        if res.returncode != 0:
+            self.logger.warn(f"Hibernation config returned {res.returncode}: {res.stderr.strip()}")
+            return False
+        self.logger.success('Hibernation disabled.')
+        return True
+
+
+@register_installer('enable_long_paths')
+class EnableLongPathsInstaller(BaseInstaller):
+    """Enable Win32 long path support (>260 chars)."""
+
+    def get_name(self) -> str:
+        return "Enable Win32 long paths"
+
+    def install(self) -> bool:
+        self.logger.info('Enabling Win32 long path support...')
+
+        ps = (
+            "$p = 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem'; "
+            "Set-ItemProperty -Path $p -Name 'LongPathsEnabled' -Value 1 -Type DWord -Force"
+        )
+        code = import_common_module_and(ps, self.config.module_path)
+
+        if self.is_what_if_mode():
+            self.logger.info("[what-if] Would enable long paths")
+            return True
+
+        res = run_powershell(code)
+        if res.returncode != 0:
+            self.logger.warn(f"Long paths config returned {res.returncode}: {res.stderr.strip()}")
+            return False
+        self.logger.success('Win32 long path support enabled.')
+        return True
+
+
+@register_installer('create_tools_directory')
+class CreateToolsDirectoryInstaller(BaseInstaller):
+    """Create C:\\Tools directory structure and add to PATH."""
+
+    def get_name(self) -> str:
+        return "Create C:\\Tools structure"
+
+    def install(self) -> bool:
+        self.logger.info('Creating C:\\Tools directory structure...')
+
+        base = r'C:\Tools'
+        subdirs = [
+            'Malware', 'Memory', 'Disk', 'Network', 'Logs',
+            'Documents', 'Hashing', 'Wallpapers', 'YARA-Rules',
+        ]
+
+        if self.is_what_if_mode():
+            self.logger.info(f"[what-if] Would create {base} with subdirs: {', '.join(subdirs)}")
+            return True
+
+        try:
+            os.makedirs(base, exist_ok=True)
+            for sub in subdirs:
+                os.makedirs(os.path.join(base, sub), exist_ok=True)
+        except Exception as e:
+            self.logger.warn(f"Failed to create directory structure: {e}")
+            return False
+
+        # Add C:\Tools to system PATH if not present
+        ps = (
+            "$toolsPath = 'C:\\Tools'; "
+            "$currentPath = [Environment]::GetEnvironmentVariable('Path', 'Machine'); "
+            "if ($currentPath -notlike \"*$toolsPath*\") { "
+            "  [Environment]::SetEnvironmentVariable('Path', \"$currentPath;$toolsPath\", 'Machine'); "
+            "  Write-Host 'C:\\Tools added to system PATH' "
+            "} else { Write-Host 'C:\\Tools already in PATH' }"
+        )
+        code = import_common_module_and(ps, self.config.module_path)
+        res = run_powershell(code)
+        if res.returncode != 0:
+            self.logger.warn(f"PATH update returned {res.returncode}: {res.stderr.strip()}")
+
+        self.logger.success(f'C:\\Tools directory structure created ({len(subdirs)} subdirs).')
+        return True
+
+
 @register_installer('create_shortcut')
 class CreateShortcutInstaller(BaseInstaller):
     """Create shortcut for a single tool immediately after installation.
