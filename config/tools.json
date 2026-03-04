@@ -125,7 +125,8 @@
             "display_name": "Visual Studio Code",
             "exe_candidates": [
               "C:\\Program Files\\Microsoft VS Code\\Code.exe",
-              "C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe"
+              "C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe",
+              "${LOCALAPPDATA}\\Programs\\Microsoft VS Code\\Code.exe"
             ]
           }
         },
@@ -155,11 +156,13 @@
           "installer_type": "chocolatey",
           "package_name": "7zip",
           "shortcut": {
-            "mode": "exe_candidates",
+            "mode": "search_exe",
             "display_name": "7-Zip",
-            "exe_candidates": [
-              "C:\\Program Files\\7-Zip\\7zFM.exe",
-              "C:\\Program Files (x86)\\7-Zip\\7zFM.exe"
+            "exe_name": "7zFM.exe",
+            "search_roots": [
+              "C:\\Program Files\\7-Zip",
+              "C:\\Program Files (x86)\\7-Zip",
+              "C:\\ProgramData\\chocolatey\\lib\\7zip"
             ]
           }
         },
@@ -195,7 +198,9 @@
             "exe_name": "DB Browser for SQLite.exe",
             "search_roots": [
               "C:\\Program Files\\DB Browser for SQLite",
-              "C:\\Program Files (x86)\\DB Browser for SQLite"
+              "C:\\Program Files (x86)\\DB Browser for SQLite",
+              "C:\\ProgramData\\chocolatey\\lib\\sqlitebrowser\\tools",
+              "C:\\ProgramData\\chocolatey\\lib\\sqlitebrowser"
             ]
           }
         },
@@ -224,11 +229,14 @@
           "installer_type": "chocolatey",
           "package_name": "putty",
           "shortcut": {
-            "mode": "exe_candidates",
+            "mode": "search_exe",
             "display_name": "PuTTY",
-            "exe_candidates": [
-              "C:\\Program Files\\PuTTY\\putty.exe",
-              "C:\\Program Files (x86)\\PuTTY\\putty.exe"
+            "exe_name": "putty.exe",
+            "search_roots": [
+              "C:\\Program Files\\PuTTY",
+              "C:\\Program Files (x86)\\PuTTY",
+              "C:\\ProgramData\\chocolatey\\lib\\putty",
+              "C:\\ProgramData\\chocolatey\\lib\\putty.install"
             ]
           }
         }
@@ -253,7 +261,8 @@
             "display_name": "Google Chrome",
             "exe_candidates": [
               "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-              "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+              "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+              "${LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe"
             ]
           }
         },
@@ -271,7 +280,8 @@
             "display_name": "Brave",
             "exe_candidates": [
               "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-              "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+              "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+              "${LOCALAPPDATA}\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
             ]
           }
         },
@@ -335,10 +345,13 @@
           "installer_type": "chocolatey",
           "package_name": "imhex",
           "shortcut": {
-            "mode": "exe_candidates",
+            "mode": "search_exe",
             "display_name": "ImHex",
-            "exe_candidates": [
-              "C:\\Program Files\\ImHex\\imhex.exe"
+            "exe_name": "imhex.exe",
+            "search_roots": [
+              "C:\\Program Files\\ImHex",
+              "C:\\Program Files (x86)\\ImHex",
+              "C:\\ProgramData\\chocolatey\\lib\\imhex"
             ]
           }
         }

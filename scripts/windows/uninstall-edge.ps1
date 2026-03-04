@@ -107,8 +107,8 @@ function Uninstall-MicrosoftEdge {
     Write-Log -Level Info -Message 'Attempting to uninstall Microsoft Edge...'
     if (Get-Command Assert-WindowsAndAdmin -ErrorAction SilentlyContinue) { Assert-WindowsAndAdmin }
 
-    $setupCandidates = Get-EdgeSetupCandidates
-    if (-not $setupCandidates -or $setupCandidates.Count -eq 0) {
+    $setupCandidates = @(Get-EdgeSetupCandidates)
+    if ($setupCandidates.Count -eq 0) {
         Write-Log -Level Warn -Message 'Edge setup.exe not found. Edge may already be removed or protected by this Windows build.'
     }
 
@@ -133,7 +133,7 @@ function Uninstall-MicrosoftEdge {
         "$env:ProgramFiles(x86)\\Microsoft\\Edge\\Application\\msedge.exe",
         "$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe"
     )
-    $stillPresent = $edgeExeCandidates | Where-Object { Test-Path -LiteralPath $_ }
+    $stillPresent = @($edgeExeCandidates | Where-Object { Test-Path -LiteralPath $_ })
 
     if ($stillPresent.Count -gt 0) {
         Write-Log -Level Warn -Message 'Edge executable still present. This Windows build may prevent full removal; update services were disabled and shortcuts cleaned.'

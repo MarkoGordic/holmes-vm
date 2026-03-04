@@ -63,24 +63,62 @@ class NetworkCheckInstaller(BaseInstaller):
     def get_name(self) -> str:
         return "Network connectivity"
     
+    def _try_url(self, url: str, allow_insecure: bool = False) -> bool:
+        """Try reaching a URL. On SSL errors, retry with unverified context if allowed."""
+        import urllib.request
+        import ssl
+
+        # First attempt: standard verified SSL
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
+                if 200 <= resp.status < 400:
+                    return True
+        except urllib.error.URLError as e:
+            inner = getattr(e, 'reason', None)
+            is_ssl = isinstance(inner, ssl.SSLCertVerificationError) or 'CERTIFICATE_VERIFY_FAILED' in str(e)
+            if is_ssl and allow_insecure:
+                # Retry without cert verification (fresh VMs often lack updated root certs)
+                try:
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    with urllib.request.urlopen(url, timeout=10, context=ctx) as resp:  # nosec B310
+                        if 200 <= resp.status < 400:
+                            self.logger.warn(f'Reachable (SSL cert not verified — update root certificates): {url}')
+                            return True
+                except Exception:
+                    pass
+            raise  # re-raise so caller can log
+        return False
+
     def install(self) -> bool:
-        """Check network connectivity"""
+        """Check network connectivity with retries for transient DNS failures"""
         self.logger.info('Checking network connectivity...')
         
         urls = ['https://www.google.com/generate_204', 'https://github.com']
         ok = 0
+        max_retries = 3
         
         for url in urls:
-            try:
-                import urllib.request
-                with urllib.request.urlopen(url, timeout=7) as resp:  # nosec B310
-                    if 200 <= resp.status < 400:
+            reached = False
+            for attempt in range(1, max_retries + 1):
+                try:
+                    if self._try_url(url, allow_insecure=True):
                         ok += 1
+                        reached = True
                         self.logger.success(f'Reachable: {url}')
-                    else:
-                        self.logger.warn(f'Unexpected status {resp.status} for {url}')
-            except Exception as e:
-                self.logger.warn(f'Not reachable: {url} ({e})')
+                        break
+                except Exception as e:
+                    err_str = str(e)
+                    is_dns = 'Name or service not known' in err_str or 'getaddrinfo failed' in err_str or 'could not be resolved' in err_str.lower()
+                    if is_dns and attempt < max_retries:
+                        import time
+                        delay = attempt * 5
+                        self.logger.info(f'DNS lookup failed for {url}, retrying in {delay}s ({attempt}/{max_retries})...')
+                        time.sleep(delay)
+                        continue
+                    self.logger.warn(f'Not reachable: {url} ({e})')
+                    break
         
         self.logger.info(f'Network connectivity summary: {ok}/{len(urls)} reachable')
         return ok > 0
@@ -760,6 +798,32 @@ class CreateShortcutInstaller(BaseInstaller):
                 else:
                     candidates.append(c)
             exe = next((p for p in candidates if os.path.exists(p)), None)
+            
+            # Fallback 1: walk candidate parent directories (handles sub-path variations)
+            if not exe and candidates:
+                exe_name = os.path.basename(candidates[0])
+                searched = set()
+                for c in candidates:
+                    parent = os.path.dirname(c)
+                    norm = os.path.normcase(parent)
+                    if norm in searched:
+                        continue
+                    searched.add(norm)
+                    if os.path.isdir(parent):
+                        for walk_root, _, walk_files in os.walk(parent):
+                            if exe_name in walk_files:
+                                exe = os.path.join(walk_root, exe_name)
+                                break
+                    if exe:
+                        break
+            
+            # Fallback 2: try PATH lookup (finds Chocolatey shims or MSI-registered exes)
+            if not exe and candidates:
+                exe_name = os.path.basename(candidates[0])
+                found = shutil.which(exe_name)
+                if found and os.path.isfile(found):
+                    exe = found
+            
             if exe:
                 return self._ps_create_shortcut(exe, dest_dir, display)
             else:

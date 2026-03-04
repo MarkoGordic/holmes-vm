@@ -68,8 +68,8 @@ function Invoke-SafeDownload {
     param(
         [Parameter(Mandatory)][string]$Uri,
         [Parameter(Mandatory)][string]$OutFile,
-        [int]$RetryCount = 3,
-        [int]$RetryDelaySec = 3
+        [int]$RetryCount = 5,
+        [int]$RetryDelaySec = 5
     )
     if ($PSCmdlet.ShouldProcess($Uri, "Download to $OutFile")) {
         Set-Tls12IfNeeded
@@ -79,8 +79,11 @@ function Invoke-SafeDownload {
                 if (Test-Path -LiteralPath $OutFile) { return $true }
             }
             catch {
+                Write-Log -Level Warn -Message "Download attempt $i/$RetryCount failed: $($_.Exception.Message)"
                 if ($i -ge $RetryCount) { throw }
-                Start-Sleep -Seconds $RetryDelaySec
+                $delay = $RetryDelaySec * $i
+                Write-Log -Level Info -Message "Retrying in $delay seconds..."
+                Start-Sleep -Seconds $delay
             }
         }
     }
@@ -127,10 +130,25 @@ function Ensure-Chocolatey {
         Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
         Set-Tls12IfNeeded
         $installScript = 'https://community.chocolatey.org/install.ps1'
-        try {
-            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString($installScript))
-        } catch {
-            throw "Chocolatey installation failed: $($_.Exception.Message)"
+
+        $maxAttempts = 5
+        $installed   = $false
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            try {
+                Invoke-Expression ((New-Object System.Net.WebClient).DownloadString($installScript))
+                $installed = $true
+                break
+            } catch {
+                Write-Log -Level Warn -Message "Chocolatey install attempt $attempt/$maxAttempts failed: $($_.Exception.Message)"
+                if ($attempt -lt $maxAttempts) {
+                    $delay = $attempt * 5
+                    Write-Log -Level Info -Message "Retrying in $delay seconds..."
+                    Start-Sleep -Seconds $delay
+                }
+            }
+        }
+        if (-not $installed) {
+            throw "Chocolatey installation failed after $maxAttempts attempts. Check network/DNS connectivity (nslookup community.chocolatey.org)."
         }
         Start-Sleep -Seconds 3
         if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {

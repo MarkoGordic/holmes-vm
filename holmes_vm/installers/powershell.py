@@ -21,7 +21,14 @@ class PowerShellInstaller(BaseInstaller):
         self.ps_args = ps_args
     
     def get_name(self) -> str:
-        return f"Install {self.tool_name}"
+        name = self.tool_name or ''
+        lower = name.lower()
+        # Don't prepend "Install" if the name already starts with an action verb
+        action_verbs = ('install', 'uninstall', 'remove', 'upgrade', 'update',
+                        'enable', 'disable', 'set', 'configure', 'create', 'ensure')
+        if any(lower.startswith(v) for v in action_verbs):
+            return name
+        return f"Install {name}"
     
     def install(self) -> bool:
         """Run PowerShell installer script"""

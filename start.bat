@@ -63,12 +63,30 @@ REM Install Chocolatey if needed
 where choco >nul 2>&1
 if %errorlevel% NEQ 0 (
     echo [INFO] Chocolatey not found, installing...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" || (
-        echo [ERROR] Failed to install Chocolatey.
-        echo        Please check your internet connection and try again.
+
+    REM Retry up to 5 times with increasing delay. Fresh VMs often need a few
+    REM seconds before DNS starts resolving external hosts reliably.
+    set "CHOCO_INSTALLED="
+    for %%R in (1 2 3 4 5) do (
+        if not defined CHOCO_INSTALLED (
+            if %%R GTR 1 (
+                echo %C_WARN%[RETRY]%C_RESET% Attempt %%R of 5 ...
+                REM Increase delay each attempt: 5, 10, 15, 20 seconds
+                set /a "DELAY=%%R * 5"
+                timeout /t !DELAY! /nobreak >nul 2>&1
+            )
+            powershell -NoProfile -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >nul 2>&1 && set "CHOCO_INSTALLED=1"
+        )
+    )
+
+    if not defined CHOCO_INSTALLED (
+        echo %C_ERR%[ERROR]%C_RESET% Failed to install Chocolatey after 5 attempts.
+        echo        Please verify your internet connection and DNS resolution, then try again.
+        echo        You can test with: nslookup community.chocolatey.org
         call :HANG 1
     )
     set "PATH=%PATH%;C:\ProgramData\chocolatey\bin"
+    echo %C_SUCC%[OK]%C_RESET% Chocolatey installed
 ) else (
     echo %C_SUCC%[OK]%C_RESET% Chocolatey is installed
 )
