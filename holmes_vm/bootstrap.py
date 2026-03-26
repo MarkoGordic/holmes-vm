@@ -112,9 +112,14 @@ def _try_enable_ansi_on_windows() -> bool:
 def is_admin():
     """Check if running with administrator privileges"""
     try:
-        return ctypes.windll.shell32.IsUserAnAdmin() != 0
-    except Exception:
-        return False
+        # Reuse utility when available, fall back to direct ctypes call
+        from holmes_vm.utils.system import is_admin as _is_admin
+        return _is_admin()
+    except ImportError:
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            return False
 
 
 def print_header(text):

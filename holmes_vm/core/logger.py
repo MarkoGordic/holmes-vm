@@ -200,7 +200,7 @@ def get_default_log_dir() -> str:
     """Get default log directory path in a cross-platform way"""
     # Prefer a sensible default per platform. On Windows, respect ProgramData.
     if os.name == 'nt':
-        base = os.environ.get('ProgramData', r'C:\\ProgramData')
+        base = os.environ.get('ProgramData', r'C:\ProgramData')
         return os.path.join(base, 'HolmesVM', 'Logs')
     # On POSIX (developer machines), store under user home
     return os.path.join(os.path.expanduser('~'), '.holmesvm', 'logs')

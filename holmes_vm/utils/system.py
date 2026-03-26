@@ -23,15 +23,41 @@ def is_windows() -> bool:
     return sys.platform == 'win32'
 
 
-def run_powershell(ps_code: str, cwd: str = None, timeout: int = None) -> subprocess.CompletedProcess:
-    """Run PowerShell code and return result"""
+def run_powershell(ps_code: str, cwd: str = None, timeout: int = 600) -> subprocess.CompletedProcess:
+    """Run PowerShell code and return result.
+
+    Args:
+        ps_code: PowerShell code to execute.
+        cwd: Working directory for the subprocess.
+        timeout: Max seconds to wait (default 600 = 10 min). Pass None to wait indefinitely.
+
+    Returns:
+        CompletedProcess with stdout/stderr.
+    """
+    if not is_windows():
+        # Return a synthetic failure on non-Windows so callers can handle gracefully
+        return subprocess.CompletedProcess(
+            args=[], returncode=1,
+            stdout='', stderr='PowerShell is not available on this platform'
+        )
     cmd = [
         'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-Command', f"$ErrorActionPreference='Stop'; {ps_code}"
     ]
-    return subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
-    )
+    try:
+        return subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=1,
+            stdout='', stderr=f'PowerShell command timed out after {timeout}s'
+        )
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=1,
+            stdout='', stderr='powershell.exe not found on PATH'
+        )
 
 
 def import_common_module_and(ps_inner: str, module_path: str) -> str:

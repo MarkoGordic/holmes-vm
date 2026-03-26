@@ -5,9 +5,11 @@ Function-based installers (Python implementations)
 """
 
 import os
+import re
 import sys
 import shutil
 import subprocess
+import urllib.request
 from typing import Optional, List, Dict, Tuple
 from holmes_vm.installers.base import BaseInstaller, register_installer
 from holmes_vm.utils.system import run_powershell, import_common_module_and
@@ -100,10 +102,9 @@ class NetworkCheckInstaller(BaseInstaller):
         max_retries = 3
         
         for url in urls:
-            reached = False
-            for attempt in range(1, max_retries + 1):
-                try:
-                    if self._try_url(url, allow_insecure=True):
+            try:
+                with urllib.request.urlopen(url, timeout=7) as resp:  # nosec B310
+                    if 200 <= resp.status < 400:
                         ok += 1
                         reached = True
                         self.logger.success(f'Reachable: {url}')
@@ -188,7 +189,7 @@ class WallpaperInstaller(BaseInstaller):
             self.logger.warn('Wallpaper not found in assets; skipping.')
             return False
         
-        dest_dir = r'C:\\Tools\\Wallpapers'
+        dest_dir = r'C:\Tools\Wallpapers'
         os.makedirs(dest_dir, exist_ok=True)
         dest = os.path.join(dest_dir, 'holmes-wallpaper.jpg')
         
@@ -217,27 +218,79 @@ class WallpaperInstaller(BaseInstaller):
 
 @register_installer('set_appearance')
 class AppearanceInstaller(BaseInstaller):
-    """Apply Windows appearance settings with Sherlock Holmes dark theme"""
-    
+    """Apply Windows appearance settings with Sherlock Holmes dark theme and forensics personalization"""
+
     def get_name(self) -> str:
-        return "Apply Windows appearance (Dark Mode)"
-    
+        return "Apply Windows appearance (Dark Mode + Personalization)"
+
     def install(self) -> bool:
-        """Apply Windows appearance settings with dark theme"""
+        """Apply Windows dark theme, accent color, and deep forensics personalization"""
         self.logger.info('Applying Sherlock Holmes dark theme...')
-        
+
         # Victorian brown accent color: #A0826D
         code = import_common_module_and(
-            "Set-WindowsAppearance -DarkMode -AccentHex '#A0826D' -ShowAccentOnTaskbar -EnableTransparency -ApplyForAllUsers -RestartExplorer",
+            "Set-WindowsAppearance -DarkMode -AccentHex '#A0826D' -ShowAccentOnTaskbar -EnableTransparency -ApplyForAllUsers",
             self.config.module_path
         )
         res = run_powershell(code)
-        
+
         if res.returncode != 0:
             self.logger.warn(f'Appearance setup returned {res.returncode}: {res.stderr.strip()}')
-            return False
         else:
             self.logger.success('Dark theme with Victorian brown accent applied.')
+
+        # Deep personalization: taskbar, explorer, system, privacy, visual polish
+        self.logger.info('Applying forensics VM personalization tweaks...')
+        code2 = import_common_module_and(
+            "Set-ForensicsPersonalization -RestartExplorer",
+            self.config.module_path
+        )
+        res2 = run_powershell(code2)
+
+        if res2.returncode != 0:
+            self.logger.warn(f'Personalization returned {res2.returncode}: {res2.stderr.strip()}')
+            # Don't fail the whole step - dark theme was already applied
+        else:
+            self.logger.success('Forensics VM personalization applied (taskbar, explorer, system, privacy, visual).')
+
+        return True
+
+
+@register_installer('disable_defender')
+class DisableDefenderInstaller(BaseInstaller):
+    """Disable Windows Defender for forensics VM (prevents interference with malware samples)"""
+
+    def get_name(self) -> str:
+        return "Disable Windows Defender (Forensics VM)"
+
+    def install(self) -> bool:
+        """Disable Defender via PowerShell script"""
+        self.logger.info('Disabling Windows Defender for forensics VM...')
+
+        ps1_path = os.path.join(self.config.util_dir, 'disable-defender.ps1')
+        if not os.path.exists(ps1_path):
+            self.logger.error(f"Script not found: {ps1_path}")
+            return False
+
+        from holmes_vm.utils.system import dot_source_and
+        code = import_common_module_and(
+            dot_source_and(ps1_path, 'Disable-WindowsDefender'),
+            self.config.module_path
+        )
+
+        if self.is_what_if_mode():
+            self.logger.info('[what-if] Would disable Windows Defender')
+            return True
+
+        res = run_powershell(code)
+
+        if res.returncode != 0:
+            self.logger.warn(f'Defender disable returned {res.returncode}: {res.stderr.strip()}')
+            self.logger.info('Some Defender settings may require Tamper Protection to be disabled first.')
+            # Don't fail the step - partial success is expected
+            return True
+        else:
+            self.logger.success('Windows Defender disabled. A reboot may be required.')
             return True
 
 
@@ -299,7 +352,6 @@ class OrganizeDesktopInstaller(BaseInstaller):
         if keywords:
             return [k.lower() for k in keywords if isinstance(k, str) and k]
         # Derive from name: strip parentheses and split
-        import re
         stopwords = {
             'tool', 'tools', 'suite', 'viewer', 'view', 'windows', 'window',
             'analysis', 'forensics', 'forensic', 'browser', 'browsers',
@@ -359,16 +411,17 @@ class OrganizeDesktopInstaller(BaseInstaller):
             os.makedirs(dst_dir, exist_ok=True)
             base = os.path.basename(src)
             dst = os.path.join(dst_dir, base)
-            # Avoid overwrite
+            # Avoid overwrite (bounded to prevent infinite loops)
             if os.path.exists(dst):
                 name, ext = os.path.splitext(base)
-                i = 2
-                while True:
+                for i in range(2, 1000):
                     cand = os.path.join(dst_dir, f"{name} ({i}){ext}")
                     if not os.path.exists(cand):
                         dst = cand
                         break
-                    i += 1
+                else:
+                    self.logger.warn(f"Too many duplicates for '{base}' in '{dst_dir}'; skipping.")
+                    return None
             if self.is_what_if_mode():
                 self.logger.info(f"[what-if] Move '{src}' -> '{dst}'\n")
                 return dst

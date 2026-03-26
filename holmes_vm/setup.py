@@ -81,16 +81,16 @@ def _select_ui(args):
     return None, None, False
 
 
-def main():
-    """Main entry point"""
+def main() -> int:
+    """Main entry point. Returns exit code (0=success, non-zero=failure)."""
     args = parse_arguments()
-    
+
     # Initialize configuration
     config = get_config()
-    
+
     # Select UI
     ui, rich_ui, using_gui = _select_ui(args)
-    
+
     # Create logger with appropriate UI backend
     logger = create_logger(args.log_dir, ui, rich_ui)
 
@@ -98,66 +98,88 @@ def main():
     if not config.validate(logger):
         logger.error('Configuration invalid. Fix config/tools.json and try again.')
         return 2
-    
+
     # Create orchestrator
     orchestrator = SetupOrchestrator(config, logger, args)
-    
+
     if using_gui and ui is not None:
         # GUI mode: show selection dialog then run
         cancel_event = threading.Event()
         ui.set_stop_callback(cancel_event.set)
-        
+
         # Build registry for UI from config
         registry = config.get_categories()
-        
+
         def on_start(selected_ids):
+            if not selected_ids:
+                logger.warn('No tools selected.')
+                ui.enqueue(('enable_close', None))
+                return
             steps = orchestrator.build_steps_from_selection(selected_ids)
             ui.set_stop_enabled(True)
-            
+
             def _runner():
                 try:
                     orchestrator.run_steps(steps, ui, cancel_event)
                 finally:
                     ui.enqueue(('enable_close', None))
-            
+
             t = threading.Thread(target=_runner, daemon=True)
             t.start()
-        
+
         # Show selection dialog and enter UI loop
         ui.show_selection(registry, on_start)
         ui.run()
-        
+
     elif rich_ui is not None:
         # Rich console mode with enhanced UI
         logger.info('Running in enhanced console mode with Rich UI')
-        
+
         selected_ids = config.get_default_tool_ids()
+        if not selected_ids:
+            logger.warn('No default tools found in configuration.')
+            return 1
         steps = orchestrator.build_steps_from_selection(selected_ids)
-        
+
         total = len(steps)
+        failures = 0
         for i, (name, action) in enumerate(steps, start=1):
             rich_ui.start_step(i, total, name)
             logger.current_step = name
-            
+
             try:
                 action()
                 rich_ui.complete_step(success=True)
             except Exception as e:
+                failures += 1
                 logger.error(f"{name} failed: {e}")
                 rich_ui.complete_step(success=False)
-        
+
         logger.current_step = None
-        rich_ui.show_completion(success=True)
-        
+        rich_ui.show_completion(success=(failures == 0))
+        if failures > 0:
+            logger.warn(f'{failures} step(s) failed. Check the log for details.')
+
     else:
         # Plain console mode fallback
         logger.warn('GUI and Rich UI not available; running in plain console mode.')
         selected_ids = config.get_default_tool_ids()
+        if not selected_ids:
+            logger.warn('No default tools found in configuration.')
+            return 1
         steps = orchestrator.build_steps_from_selection(selected_ids)
         orchestrator.run_steps_console(steps)
-    
+
     logger.success('Setup finished.')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print('\nSetup interrupted by user.')
+        sys.exit(130)
+    except Exception as exc:
+        print(f'\nFatal error: {exc}')
+        sys.exit(1)

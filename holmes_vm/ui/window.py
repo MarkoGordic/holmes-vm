@@ -71,7 +71,9 @@ class UI:
         self._filters = {'info': True, 'warn': True, 'error': True, 'success': True, 'verbose': False}
         self._log_line_count = 0
         self._max_log_lines = 1000  # Limit log lines for performance
-        
+        self._timeline_steps = []
+        self._toast_windows = []
+
         # Custom fonts
         self._setup_fonts()
         
@@ -504,11 +506,29 @@ class UI:
         fade_in()
 
     def enable_close(self):
-        """Enable close button and disable stop button"""
+        """Enable close button and show completion summary"""
         self.close_btn.configure(state='normal')
         self.stop_btn.configure(state='disabled')
-        self.spinner_lbl.configure(text='✓')  # Checkmark when done
-        self._show_toast('Investigation complete ✓')
+
+        # Count results from timeline
+        ok = sum(1 for s in self._timeline_steps if s.get('status') == 'ok')
+        fail = sum(1 for s in self._timeline_steps if s.get('status') == 'fail')
+        total = len(self._timeline_steps)
+
+        if fail > 0:
+            self.spinner_lbl.configure(text='!', fg=COLOR_WARN)
+            self.status_lbl.configure(text=f'Done — {ok}/{total} succeeded, {fail} failed', fg=COLOR_WARN)
+            self._show_toast(f'Done — {fail} step(s) failed', error=True)
+        else:
+            self.spinner_lbl.configure(text='✓', fg=COLOR_SUCCESS)
+            self.status_lbl.configure(text='Investigation complete', fg=COLOR_SUCCESS)
+            self._show_toast('Investigation complete ✓')
+
+        # Show elapsed time in substatus
+        elapsed = int(time.time() - self._start_time)
+        mm, ss = divmod(elapsed, 60)
+        hh, mm = divmod(mm, 60)
+        self.substatus_lbl.configure(text=f'Completed in {hh:02d}:{mm:02d}:{ss:02d}')
 
     def set_stop_callback(self, cb: Callable):
         """Set callback for stop button"""

@@ -1017,9 +1017,17 @@
           "installer": "install_wallpaper"
         },
         {
+          "id": "disable_defender",
+          "name": "Disable Windows Defender",
+          "description": "Disable Defender to prevent interference with malware samples and forensics tools",
+          "default": true,
+          "installer_type": "function",
+          "installer": "disable_defender"
+        },
+        {
           "id": "appearance",
-          "name": "Dark mode & accent color",
-          "description": "Dark mode with teal accent color",
+          "name": "Windows appearance & personalization",
+          "description": "Dark mode, taskbar cleanup, Explorer tweaks, UTC timezone, disable telemetry, visual polish",
           "default": true,
           "installer_type": "function",
           "installer": "set_appearance"

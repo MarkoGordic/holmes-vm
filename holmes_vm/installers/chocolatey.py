@@ -4,6 +4,7 @@
 Chocolatey package installer
 """
 
+from typing import Optional
 from .base import BaseInstaller, register_installer
 from ..utils.system import run_powershell, import_common_module_and
 
@@ -12,7 +13,7 @@ from ..utils.system import run_powershell, import_common_module_and
 class ChocolateyInstaller(BaseInstaller):
     """Installer for Chocolatey packages"""
     
-    def __init__(self, config, logger, args, package_name: str, tool_name: str, version: str | None = None, install_args: str | None = None, suppress_default_args: bool = False):
+    def __init__(self, config, logger, args, package_name: str, tool_name: str, version: Optional[str] = None, install_args: Optional[str] = None, suppress_default_args: bool = False):
         super().__init__(config, logger, args)
         self.package_name = package_name
         self.tool_name = tool_name

@@ -37,10 +37,24 @@ class Config:
     def _load_tools_config(self) -> Dict[str, Any]:
         """Load tools configuration from JSON"""
         config_file = os.path.join(self.config_dir, 'tools.json')
-        if os.path.exists(config_file):
+        if not os.path.exists(config_file):
+            import warnings
+            warnings.warn(
+                f"Configuration file not found: {config_file}. "
+                "Using empty configuration. Ensure config/tools.json exists.",
+                stacklevel=2
+            )
+            return {"categories": []}
+        try:
             with open(config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {"categories": []}
+                data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("tools.json root must be a JSON object")
+            return data
+        except (json.JSONDecodeError, ValueError) as e:
+            import warnings
+            warnings.warn(f"Failed to parse {config_file}: {e}", stacklevel=2)
+            return {"categories": []}
     
     def get_categories(self) -> List[Dict[str, Any]]:
         """Get all tool categories"""

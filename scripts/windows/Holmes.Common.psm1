@@ -617,4 +617,214 @@ public class DesktopRefresh {
     }
 }
 
+function Set-ForensicsPersonalization {
+    <#
+    .SYNOPSIS
+      Applies comprehensive Windows personalization tweaks for a forensics VM.
+    .DESCRIPTION
+      Configures taskbar, Explorer, system, privacy, and visual settings
+      optimised for digital forensics work. Each section is wrapped in
+      try/catch so a single failure does not block subsequent tweaks.
+    .PARAMETER RestartExplorer
+      Restart explorer.exe after applying changes so they take effect immediately.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [switch]$RestartExplorer
+    )
+
+    Write-Log -Level Info -Message '=== Applying forensics VM personalization ==='
+
+    $explorerAdvanced = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    $explorerSearch   = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search'
+
+    # ── 1. Taskbar tweaks ──────────────────────────────────────────────
+    try {
+        Write-Log -Level Info -Message 'Configuring taskbar settings...'
+
+        # Hide Search box
+        Set-RegistryDword -Path $explorerSearch -Name 'SearchboxTaskbarMode' -Value 0
+
+        # Hide Task View button
+        Set-RegistryDword -Path $explorerAdvanced -Name 'ShowTaskViewButton' -Value 0
+
+        # Hide Widgets button (Win11)
+        Set-RegistryDword -Path $explorerAdvanced -Name 'TaskbarDa' -Value 0
+
+        # Hide Chat button (Win11)
+        Set-RegistryDword -Path $explorerAdvanced -Name 'TaskbarMn' -Value 0
+
+        # Small taskbar icons (Win10; ignored on Win11)
+        Set-RegistryDword -Path $explorerAdvanced -Name 'TaskbarSmallIcons' -Value 1
+
+        # Left-align taskbar (Win11)
+        Set-RegistryDword -Path $explorerAdvanced -Name 'TaskbarAl' -Value 0
+
+        # Show seconds in taskbar clock
+        Set-RegistryDword -Path $explorerAdvanced -Name 'ShowSecondsInSystemClock' -Value 1
+
+        Write-Log -Level Success -Message 'Taskbar settings applied.'
+    }
+    catch {
+        Write-Log -Level Warn -Message "Taskbar tweaks failed: $($_.Exception.Message)"
+    }
+
+    # ── 2. Explorer tweaks ─────────────────────────────────────────────
+    try {
+        Write-Log -Level Info -Message 'Configuring Explorer settings...'
+
+        # Show file extensions
+        Set-RegistryDword -Path $explorerAdvanced -Name 'HideFileExt' -Value 0
+
+        # Show hidden files
+        Set-RegistryDword -Path $explorerAdvanced -Name 'Hidden' -Value 1
+
+        # Show protected operating system files (critical for forensics)
+        Set-RegistryDword -Path $explorerAdvanced -Name 'ShowSuperHidden' -Value 1
+
+        # Show empty drives
+        Set-RegistryDword -Path $explorerAdvanced -Name 'HideDrivesWithNoMedia' -Value 0
+
+        # Launch Explorer to "This PC" instead of Quick Access
+        Set-RegistryDword -Path $explorerAdvanced -Name 'LaunchTo' -Value 1
+
+        # Show full path in Explorer title bar
+        $cabinetState = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CabinetState'
+        Set-RegistryDword -Path $cabinetState -Name 'FullPathAddress' -Value 1
+
+        # Disable recent files in Quick Access
+        Set-RegistryDword -Path $explorerAdvanced -Name 'ShowRecent' -Value 0
+        Set-RegistryDword -Path $explorerAdvanced -Name 'ShowFrequent' -Value 0
+
+        Write-Log -Level Success -Message 'Explorer settings applied.'
+    }
+    catch {
+        Write-Log -Level Warn -Message "Explorer tweaks failed: $($_.Exception.Message)"
+    }
+
+    # ── 3. System tweaks ───────────────────────────────────────────────
+    try {
+        Write-Log -Level Info -Message 'Configuring system settings...'
+
+        # Disable UAC prompts (never notify) while keeping UAC enabled
+        $uacPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+        Set-RegistryDword -Path $uacPath -Name 'ConsentPromptBehaviorAdmin' -Value 0
+        Set-RegistryDword -Path $uacPath -Name 'ConsentPromptBehaviorUser' -Value 0
+        Set-RegistryDword -Path $uacPath -Name 'PromptOnSecureDesktop' -Value 0
+        Set-RegistryDword -Path $uacPath -Name 'EnableLUA' -Value 1
+
+        # Disable lock screen
+        $personalizationPolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization'
+        Set-RegistryDword -Path $personalizationPolicy -Name 'NoLockScreen' -Value 1
+
+        # Disable screen timeout and sleep via powercfg
+        if ($PSCmdlet.ShouldProcess('Power settings', 'Disable screen timeout and sleep')) {
+            & powercfg /change monitor-timeout-ac 0
+            & powercfg /change monitor-timeout-dc 0
+            & powercfg /change standby-timeout-ac 0
+            & powercfg /change standby-timeout-dc 0
+        }
+
+        # Set timezone to UTC (forensics standard)
+        if ($PSCmdlet.ShouldProcess('Timezone', 'Set to UTC')) {
+            & tzutil /s 'UTC'
+        }
+
+        Write-Log -Level Success -Message 'System settings applied.'
+    }
+    catch {
+        Write-Log -Level Warn -Message "System tweaks failed: $($_.Exception.Message)"
+    }
+
+    # ── 4. Privacy / telemetry ─────────────────────────────────────────
+    try {
+        Write-Log -Level Info -Message 'Configuring privacy and telemetry settings...'
+
+        # Disable telemetry
+        $dataCollection = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection'
+        Set-RegistryDword -Path $dataCollection -Name 'AllowTelemetry' -Value 0
+        Set-RegistryDword -Path $dataCollection -Name 'MaxTelemetryAllowed' -Value 0
+
+        # Disable Cortana
+        $windowsSearch = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'
+        Set-RegistryDword -Path $windowsSearch -Name 'AllowCortana' -Value 0
+
+        # Disable advertising ID
+        $advertisingInfo = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo'
+        Set-RegistryDword -Path $advertisingInfo -Name 'Enabled' -Value 0
+
+        Write-Log -Level Success -Message 'Privacy and telemetry settings applied.'
+    }
+    catch {
+        Write-Log -Level Warn -Message "Privacy/telemetry tweaks failed: $($_.Exception.Message)"
+    }
+
+    # ── 5. Visual polish ───────────────────────────────────────────────
+    try {
+        Write-Log -Level Info -Message 'Configuring visual performance settings...'
+
+        # Disable most animations but keep font smoothing.
+        # UserPreferencesMask controls UI effects; setting specific bytes
+        # disables animations, fade/slide menus, tooltip animation, etc.
+        # Byte layout: 90 = disable animations but keep font smoothing (bit 1).
+        $desktopPath = 'HKCU:\Control Panel\Desktop'
+        $windowMetrics = 'HKCU:\Control Panel\Desktop\WindowMetrics'
+
+        # Disable visual effects via individual registry keys
+        # Menu animation
+        Set-RegistryDword -Path $desktopPath -Name 'MenuShowDelay' -Value 0
+
+        # Disable window animation (MinAnimate)
+        $dwmPath = 'HKCU:\Control Panel\Desktop'
+        New-Item -Path $dwmPath -Force -ErrorAction SilentlyContinue | Out-Null
+        if ($PSCmdlet.ShouldProcess('MinAnimate', 'Disable window minimize/maximize animation')) {
+            Set-ItemProperty -Path $dwmPath -Name 'MinAnimate' -Value '0' -Force
+        }
+
+        # Disable animations in the taskbar
+        Set-RegistryDword -Path $explorerAdvanced -Name 'TaskbarAnimations' -Value 0
+
+        # Disable Aero Peek
+        Set-RegistryDword -Path 'HKCU:\SOFTWARE\Microsoft\Windows\DWM' -Name 'EnableAeroPeek' -Value 0
+
+        # Disable smooth-scrolling in listviews
+        Set-RegistryDword -Path $explorerAdvanced -Name 'ListviewAlphaSelect' -Value 0
+
+        # Set Visual Effects to "Adjust for best performance" with font smoothing re-enabled
+        # VisualFXSetting: 0=LetWindowsDecide, 1=BestAppearance, 2=BestPerformance, 3=Custom
+        Set-RegistryDword -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' -Name 'VisualFXSetting' -Value 2
+
+        # Re-enable font smoothing (ClearType)
+        if ($PSCmdlet.ShouldProcess('FontSmoothing', 'Re-enable ClearType')) {
+            Set-ItemProperty -Path $desktopPath -Name 'FontSmoothing' -Value '2' -Force
+            Set-ItemProperty -Path $desktopPath -Name 'FontSmoothingType' -Value 2 -Force
+        }
+
+        Write-Log -Level Success -Message 'Visual performance settings applied.'
+    }
+    catch {
+        Write-Log -Level Warn -Message "Visual polish tweaks failed: $($_.Exception.Message)"
+    }
+
+    # ── Broadcast & optional restart ───────────────────────────────────
+    Invoke-SettingsChangedBroadcast
+
+    if ($RestartExplorer) {
+        try {
+            if ($PSCmdlet.ShouldProcess('explorer.exe', 'Restart to apply personalization')) {
+                Write-Log -Level Info -Message 'Restarting Explorer to apply personalization changes...'
+                Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 1000
+                Start-Process explorer.exe
+                Start-Sleep -Milliseconds 500
+            }
+        }
+        catch {
+            Write-Log -Level Warn -Message "Explorer restart failed: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Log -Level Success -Message '=== Forensics VM personalization complete ==='
+}
+
 Export-ModuleMember -Function *

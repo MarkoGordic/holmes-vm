@@ -55,7 +55,12 @@ class ModernUI:
         # Timeline state
         self._timeline_steps: List[Dict[str, Any]] = []  # {'idx': int, 'icon': CTkLabel}
         self._timeline_col = 0
-        
+        # Log line management
+        self._log_line_count = 0
+        self._max_log_lines = 1000
+        # Track current progress value to avoid accessing private attributes
+        self._current_progress = 0.0
+
         self._setup_ui()
         self._start_background_tasks()
     
@@ -176,8 +181,6 @@ class ModernUI:
         self.timeline_canvas.bind('<ButtonPress-1>', self._timeline_drag_start)
         self.timeline_canvas.bind('<B1-Motion>', self._timeline_drag_move)
         self._drag_last_x = None
-        self._timeline_col = 0
-        self._timeline_steps = []
         
         # === Log Section with Scrollable Frame ===
         log_container = ctk.CTkFrame(main_frame, fg_color=COLOR_BG)
@@ -300,12 +303,27 @@ class ModernUI:
         self.queue.put(item)
     
     def _append_log(self, level: str, line: str):
-        """Append log message to textbox"""
+        """Append log message to textbox with color and line limiting"""
         if not self._filters.get(level, True):
             return
-        
-        self.log_textbox.configure(state="normal")
-        # Add light prefix icons for readability
+
+        # Trim old lines to keep UI responsive
+        self._log_line_count += 1
+        if self._log_line_count > self._max_log_lines:
+            self.log_textbox.configure(state="normal")
+            # Delete first 100 lines
+            self.log_textbox.delete("1.0", "100.0")
+            self._log_line_count -= 100
+            self.log_textbox.configure(state="disabled")
+
+        # Color map for log levels
+        color_map = {
+            'info': COLOR_INFO,
+            'warn': COLOR_WARN,
+            'error': COLOR_ERROR,
+            'success': COLOR_SUCCESS,
+            'verbose': COLOR_MUTED_DARK,
+        }
         prefix = {
             'info': '→ ',
             'warn': '⚠ ',
@@ -313,7 +331,17 @@ class ModernUI:
             'success': '✓ ',
             'verbose': '… '
         }.get(level, '')
-        self.log_textbox.insert("end", prefix + line)
+
+        tag = f"log_{level}"
+        color = color_map.get(level, COLOR_FG)
+
+        self.log_textbox.configure(state="normal")
+        try:
+            self.log_textbox.tag_config(tag, foreground=color)
+            self.log_textbox.insert("end", prefix + line, tag)
+        except Exception:
+            # Fallback: insert without color if tag_config not supported
+            self.log_textbox.insert("end", prefix + line)
         self.log_textbox.see("end")
         self.log_textbox.configure(state="disabled")
     
@@ -324,6 +352,7 @@ class ModernUI:
     def set_progress(self, value: float):
         """Set progress bar value (0-100)"""
         value = max(0.0, min(100.0, float(value)))
+        self._current_progress = value
         self.progress_bar.set(value / 100.0)
         self.progress_label.configure(text=f"{int(value)}%")
     
@@ -337,7 +366,7 @@ class ModernUI:
             self.set_progress(target)
     
     def _progress_step(self):
-        current = float(self.progress_bar._determinate_value) * 100.0  # internal value in [0..1]
+        current = self._current_progress
         diff = self._progress_target - current
         if abs(diff) < 0.5:
             self.set_progress(self._progress_target)
@@ -434,6 +463,7 @@ class ModernUI:
     def _mark_timeline_step(self, idx: int, success: bool):
         for st in self._timeline_steps:
             if st['idx'] == idx:
+                st['success'] = success
                 icon_widget = st['icon']
                 final_color = COLOR_SUCCESS if success else COLOR_ERROR
                 final_icon = '✓' if success else '✗'
@@ -453,17 +483,42 @@ class ModernUI:
         _step()
     
     def enable_close(self):
-        """Enable close button and show completion"""
+        """Enable close button and show completion with summary"""
         self._is_complete = True
         self.close_button.configure(state="normal")
         self.stop_button.configure(state="disabled")
-        self.status_label.configure(
-            text="✓ Installation Complete!",
-            text_color=COLOR_SUCCESS
-        )
-        self.progress_bar.configure(progress_color=COLOR_SUCCESS)
-        # Toast notification
-        self._show_toast("Installation complete")
+
+        # Count successes and failures from timeline
+        ok = sum(1 for s in self._timeline_steps if s.get('success'))
+        fail = sum(1 for s in self._timeline_steps if s.get('success') is False)
+        total = len(self._timeline_steps)
+
+        if fail > 0:
+            self.status_label.configure(
+                text=f"Installation finished — {ok}/{total} succeeded, {fail} failed",
+                text_color=COLOR_WARN
+            )
+            self.progress_bar.configure(progress_color=COLOR_WARN)
+            self._show_toast(f"Done — {fail} step(s) failed")
+        else:
+            self.status_label.configure(
+                text="✓ Installation Complete!",
+                text_color=COLOR_SUCCESS
+            )
+            self.progress_bar.configure(progress_color=COLOR_SUCCESS)
+            self._show_toast("Installation complete")
+
+        # Stop spinner pulsing
+        try:
+            self.spinner_label.configure(text="✓" if fail == 0 else "!", text_color=COLOR_SUCCESS if fail == 0 else COLOR_WARN)
+        except Exception:
+            pass
+
+        # Show elapsed time summary
+        elapsed = int(time.time() - self._start_time)
+        mm, ss = divmod(elapsed, 60)
+        hh, mm = divmod(mm, 60)
+        self.substatus_label.configure(text=f"Completed in {hh:02d}:{mm:02d}:{ss:02d}")
     
     def set_stop_callback(self, cb: Callable):
         """Set callback for stop button"""
