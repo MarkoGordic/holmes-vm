@@ -13,12 +13,13 @@ from ..utils.system import run_powershell_streamed, import_common_module_and, do
 class PowerShellInstaller(BaseInstaller):
     """Installer that runs PowerShell scripts"""
 
-    def __init__(self, config, logger, args, script_path: str, function_name: str, tool_name: str, ps_args: str = ''):
+    def __init__(self, config, logger, args, script_path: str, function_name: str, tool_name: str, ps_args: str = '', timeout: int = 180):
         super().__init__(config, logger, args)
         self.script_path = script_path
         self.function_name = function_name
         self.tool_name = tool_name
         self.ps_args = ps_args
+        self.timeout = timeout
 
     def get_name(self) -> str:
         name = self.tool_name or ''
@@ -48,7 +49,7 @@ class PowerShellInstaller(BaseInstaller):
             self.config.module_path
         )
 
-        res = run_powershell_streamed(code, logger=self.logger, cwd=self.config.repo_dir)
+        res = run_powershell_streamed(code, logger=self.logger, cwd=self.config.repo_dir, timeout=self.timeout)
 
         if res.returncode != 0:
             stderr = res.stderr.strip()

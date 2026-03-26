@@ -23,13 +23,13 @@ def is_windows() -> bool:
     return sys.platform == 'win32'
 
 
-def run_powershell(ps_code: str, cwd: str = None, timeout: int = 600) -> subprocess.CompletedProcess:
+def run_powershell(ps_code: str, cwd: str = None, timeout: int = 180) -> subprocess.CompletedProcess:
     """Run PowerShell code and return result.
 
     Args:
         ps_code: PowerShell code to execute.
         cwd: Working directory for the subprocess.
-        timeout: Max seconds to wait (default 600 = 10 min). Pass None to wait indefinitely.
+        timeout: Max seconds to wait (default 180 = 3 min). Pass None to wait indefinitely.
 
     Returns:
         CompletedProcess with stdout/stderr.
@@ -60,7 +60,7 @@ def run_powershell(ps_code: str, cwd: str = None, timeout: int = 600) -> subproc
         )
 
 
-def run_powershell_streamed(ps_code: str, logger=None, cwd: str = None, timeout: int = 600) -> subprocess.CompletedProcess:
+def run_powershell_streamed(ps_code: str, logger=None, cwd: str = None, timeout: int = 180) -> subprocess.CompletedProcess:
     """Run PowerShell and stream stdout/stderr to the logger line-by-line.
 
     This gives real-time feedback for long-running operations like downloads

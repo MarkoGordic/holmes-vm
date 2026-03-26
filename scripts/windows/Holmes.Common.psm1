@@ -68,14 +68,14 @@ function Invoke-SafeDownload {
     param(
         [Parameter(Mandatory)][string]$Uri,
         [Parameter(Mandatory)][string]$OutFile,
-        [int]$RetryCount = 5,
-        [int]$RetryDelaySec = 5
+        [int]$RetryCount = 2,
+        [int]$RetryDelaySec = 3
     )
     if ($PSCmdlet.ShouldProcess($Uri, "Download to $OutFile")) {
         Set-Tls12IfNeeded
         for ($i = 1; $i -le $RetryCount; $i++) {
             try {
-                Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop
                 if (Test-Path -LiteralPath $OutFile) { return $true }
             }
             catch {
@@ -172,8 +172,7 @@ function Install-ChocoPackage {
         [Parameter(Mandatory)][string]$Name,
         [string]$Version,
         [switch]$ForceReinstall,
-        [string]$InstallArguments,
-        [switch]$SuppressDefaultInstallArgs
+        [string]$InstallArguments
     )
     if (-not $ForceReinstall -and (Test-ChocoPackageInstalled -Name $Name)) {
         Write-Log -Level Success -Message "Package already installed: $Name"
@@ -183,14 +182,13 @@ function Install-ChocoPackage {
     if ($Version) { $args += @('--version', $Version) }
     if ($ForceReinstall) { $args += '--force' }
     
-    # Prevent desktop shortcuts and auto-run for packages that support it
-    # VS Code, DB Browser for SQLite, and many other packages respect these arguments
+    # Pass explicit install args only if provided. Do NOT add default InnoSetup
+    # args (/VERYSILENT etc.) because they cause ExitCode 1639 on MSI-based
+    # packages (Chrome, Brave, SQLite Browser, ImHex, etc.).
+    # Chocolatey itself handles silent installs via -y flag.
     if ($InstallArguments) {
         $args += '--install-arguments'
         $args += $InstallArguments
-    } elseif (-not $SuppressDefaultInstallArgs) {
-        $args += '--install-arguments'
-        $args += '/VERYSILENT /NORESTART /MERGETASKS="!desktopicon,!quicklaunchicon,!runcode"'
     }
     
     if ($PSCmdlet.ShouldProcess($Name, 'choco install')) {

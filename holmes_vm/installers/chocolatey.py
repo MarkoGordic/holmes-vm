@@ -37,8 +37,6 @@ class ChocolateyInstaller(BaseInstaller):
             args += ' -WhatIf'
         if self.install_args:
             args += f" -InstallArguments '{self.install_args}'"
-        elif self.suppress_default_args:
-            args += ' -SuppressDefaultInstallArgs'
 
         code = import_common_module_and(
             f"Install-ChocoPackage {args}",

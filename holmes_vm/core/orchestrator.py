@@ -4,6 +4,7 @@
 Orchestrator for Holmes VM setup
 """
 
+import os
 import time
 import threading
 from typing import List, Tuple, Callable, Any, Optional
@@ -43,6 +44,13 @@ class SetupOrchestrator:
                 self.logger.warn(f"Tool not found in config: {tool_id}")
                 continue
 
+            # Skip-if-installed: check if tool exe already exists on disk
+            if not getattr(self.args, 'force_reinstall', False):
+                if self._is_already_installed(tool_id, tool_config):
+                    tool_name = tool_config.get('name', tool_id)
+                    self.logger.success(f"{tool_name} already installed, skipping.")
+                    continue
+
             installer_type = tool_config.get('installer_type')
 
             if installer_type == 'function':
@@ -70,12 +78,12 @@ class SetupOrchestrator:
 
                 # Single combined step: install then create shortcut
                 def _do_install_and_shortcut(inst=installer, sc_inst=shortcut_installer):
-                    inst.install()
+                    if not inst.install():
+                        raise RuntimeError(f"{inst.get_name()} failed")
                     if sc_inst:
                         try:
                             sc_inst.install()
                         except Exception:
-                            # Shortcut creation failure should not fail the whole step
                             pass
 
                 steps.append((installer.get_name(), _do_install_and_shortcut))
@@ -96,9 +104,14 @@ class SetupOrchestrator:
                         shortcut_category = f"{desktop_group}\\{tool_config.get('name')}"
                     ps_args = (ps_args + f" -ShortcutCategory '{shortcut_category}'").strip()
 
+                # Large downloads get longer timeout (Ghidra, Autopsy, EZ Tools, Sysinternals)
+                big_tools = {'ghidra', 'autopsy', 'eztools', 'sysinternals'}
+                tool_timeout = 600 if tool_id in big_tools else 180
+
                 installer = PowerShellInstaller(
                     self.config, self.logger, self.args,
-                    ps.get('script_path'), ps.get('function_name'), ps.get('tool_name'), ps_args
+                    ps.get('script_path'), ps.get('function_name'), ps.get('tool_name'), ps_args,
+                    timeout=tool_timeout
                 )
 
                 # Optional second-chance shortcut creation in same step
@@ -109,7 +122,8 @@ class SetupOrchestrator:
                     )
 
                 def _do_ps_and_shortcut(inst=installer, sc=sc_inst):
-                    inst.install()
+                    if not inst.install():
+                        raise RuntimeError(f"{inst.get_name()} failed")
                     if sc:
                         try:
                             sc.install()
@@ -119,6 +133,40 @@ class SetupOrchestrator:
                 steps.append((installer.get_name(), _do_ps_and_shortcut))
 
         return steps
+
+    def _is_already_installed(self, tool_id: str, tool_config: dict) -> bool:
+        """Check if a tool is already installed by looking for its executable."""
+        shortcut = tool_config.get('shortcut') or {}
+        mode = shortcut.get('mode')
+
+        if mode == 'exe_candidates':
+            for c in shortcut.get('exe_candidates', []):
+                path = c
+                if path.startswith('${LOCALAPPDATA}'):
+                    la = os.environ.get('LOCALAPPDATA', '')
+                    path = path.replace('${LOCALAPPDATA}', la)
+                if os.path.exists(path):
+                    return True
+
+        elif mode == 'search_exe':
+            exe_name = shortcut.get('exe_name', '')
+            for root in shortcut.get('search_roots', []):
+                if os.path.isdir(root):
+                    for dirpath, _, files in os.walk(root):
+                        if exe_name in files:
+                            return True
+
+        elif mode == 'folder_all':
+            for folder in shortcut.get('folders', []):
+                if os.path.isdir(folder) and os.listdir(folder):
+                    return True
+
+        elif mode == 'eztools':
+            root = shortcut.get('root', '')
+            if os.path.isdir(root) and os.listdir(root):
+                return True
+
+        return False
 
     def run_steps(self, steps: List[Tuple[str, Callable]], ui=None, cancel_event: Optional[threading.Event] = None) -> int:
         """Run installation steps. Returns number of failures.
