@@ -6,13 +6,13 @@ Chocolatey package installer
 
 from typing import Optional
 from .base import BaseInstaller, register_installer
-from ..utils.system import run_powershell, import_common_module_and
+from ..utils.system import run_powershell_streamed, import_common_module_and
 
 
 @register_installer('chocolatey')
 class ChocolateyInstaller(BaseInstaller):
     """Installer for Chocolatey packages"""
-    
+
     def __init__(self, config, logger, args, package_name: str, tool_name: str, version: Optional[str] = None, install_args: Optional[str] = None, suppress_default_args: bool = False):
         super().__init__(config, logger, args)
         self.package_name = package_name
@@ -20,14 +20,14 @@ class ChocolateyInstaller(BaseInstaller):
         self.version = version
         self.install_args = install_args
         self.suppress_default_args = suppress_default_args
-    
+
     def get_name(self) -> str:
         return f"Install {self.tool_name}"
-    
+
     def install(self) -> bool:
-        """Install Chocolatey package"""
+        """Install Chocolatey package with live progress output"""
         self.logger.info(f'Installing {self.tool_name} via Chocolatey...')
-        
+
         args = f"-Name '{self.package_name}'"
         if self.version:
             args += f" -Version '{self.version}'"
@@ -36,20 +36,17 @@ class ChocolateyInstaller(BaseInstaller):
         if self.is_what_if_mode():
             args += ' -WhatIf'
         if self.install_args:
-            # pass through explicit install args
             args += f" -InstallArguments '{self.install_args}'"
         elif self.suppress_default_args:
-            # suppress default, do nothing
             args += ' -SuppressDefaultInstallArgs'
-        # else allow module to add default arguments automatically
-        
+
         code = import_common_module_and(
-            f"Install-ChocoPackage {args} | Out-Null",
+            f"Install-ChocoPackage {args}",
             self.config.module_path
         )
-        
-        res = run_powershell(code)
-        
+
+        res = run_powershell_streamed(code, logger=self.logger)
+
         if res.returncode != 0:
             self.logger.warn(f"{self.tool_name} install returned {res.returncode}: {res.stderr.strip()}")
             return False

@@ -129,7 +129,11 @@ class SetupOrchestrator:
             raise RuntimeError('Run as Administrator')
 
     def run_steps(self, steps: List[Tuple[str, Callable]], ui=None, cancel_event: Optional[threading.Event] = None) -> int:
-        """Run installation steps. Returns number of failures."""
+        """Run installation steps. Returns number of failures.
+
+        Failed steps are skipped automatically so the remaining tools
+        can still be installed.
+        """
         if not steps:
             self.logger.warn('No steps to execute.')
             return 0
@@ -137,28 +141,34 @@ class SetupOrchestrator:
         total = len(steps)
         start = time.time()
         failures = 0
+        skipped = 0
 
         for i, (name, action) in enumerate(steps, start=1):
             if cancel_event and cancel_event.is_set():
                 self.logger.warn('Cancelled by user before next step.')
+                skipped = total - i + 1
                 break
 
             if ui:
                 ui.enqueue(('step_hdr', i, total, name))
-                ui.enqueue(('status', 'Working'))
+                ui.enqueue(('status', f'[{i}/{total}] {name}'))
                 ui.enqueue(('progress_to', int((i - 1) * 100 / total)))
 
             self.logger.current_step = name
             self.logger.info(f"{name}")
 
+            step_start = time.time()
             success = True
             try:
                 action()
-                self.logger.success(f"{name} completed.")
+                step_elapsed = time.time() - step_start
+                self.logger.success(f"{name} completed ({step_elapsed:.1f}s).")
             except Exception as e:
                 success = False
                 failures += 1
-                self.logger.error(f"{name} failed: {e}")
+                step_elapsed = time.time() - step_start
+                self.logger.error(f"{name} failed ({step_elapsed:.1f}s): {e}")
+                self.logger.info(f"Skipping to next step...")
 
             if ui:
                 ui.enqueue(('step_result', i, success))
@@ -172,34 +182,50 @@ class SetupOrchestrator:
                 ui.enqueue(('progress_to', int(i * 100 / total)))
 
         self.logger.current_step = None
+        elapsed = time.time() - start
+        mm, ss = divmod(int(elapsed), 60)
         if failures:
-            self.logger.warn(f'{failures}/{total} step(s) failed.')
+            self.logger.warn(f'{failures}/{total} step(s) failed. Total time: {mm}m {ss}s.')
+        else:
+            self.logger.success(f'All {total} steps completed in {mm}m {ss}s.')
         self._notify_completion(total, failures)
         return failures
 
     def run_steps_console(self, steps: List[Tuple[str, Callable]]) -> int:
-        """Run installation steps in console mode. Returns number of failures."""
+        """Run installation steps in console mode. Returns number of failures.
+
+        Failed steps are skipped automatically.
+        """
         if not steps:
             self.logger.warn('No steps to execute.')
             return 0
 
         total = len(steps)
+        start = time.time()
         failures = 0
 
         for i, (name, action) in enumerate(steps, start=1):
             self.logger.current_step = name
             self.logger.info(f"[{i}/{total}] {name}")
 
+            step_start = time.time()
             try:
                 action()
-                self.logger.success(f"{name} completed.")
+                step_elapsed = time.time() - step_start
+                self.logger.success(f"{name} completed ({step_elapsed:.1f}s).")
             except Exception as e:
                 failures += 1
-                self.logger.error(f"{name} failed: {e}")
+                step_elapsed = time.time() - step_start
+                self.logger.error(f"{name} failed ({step_elapsed:.1f}s): {e}")
+                self.logger.info(f"Skipping to next step...")
 
         self.logger.current_step = None
+        elapsed = time.time() - start
+        mm, ss = divmod(int(elapsed), 60)
         if failures:
-            self.logger.warn(f'{failures}/{total} step(s) failed.')
+            self.logger.warn(f'{failures}/{total} step(s) failed. Total time: {mm}m {ss}s.')
+        else:
+            self.logger.success(f'All {total} steps completed in {mm}m {ss}s.')
         self._notify_completion(total, failures)
         return failures
 

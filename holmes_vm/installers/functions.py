@@ -12,7 +12,7 @@ import subprocess
 import urllib.request
 from typing import Optional, List, Dict, Tuple
 from holmes_vm.installers.base import BaseInstaller, register_installer
-from holmes_vm.utils.system import run_powershell, import_common_module_and
+from holmes_vm.utils.system import run_powershell, run_powershell_streamed, import_common_module_and
 
 
 @register_installer('prepare_desktop_groups')
@@ -194,7 +194,7 @@ class AppearanceInstaller(BaseInstaller):
             "Set-WindowsAppearance -DarkMode -AccentHex '#A0826D' -ShowAccentOnTaskbar -EnableTransparency -ApplyForAllUsers",
             self.config.module_path
         )
-        res = run_powershell(code)
+        res = run_powershell_streamed(code, logger=self.logger)
 
         if res.returncode != 0:
             self.logger.warn(f'Appearance setup returned {res.returncode}: {res.stderr.strip()}')
@@ -207,7 +207,7 @@ class AppearanceInstaller(BaseInstaller):
             "Set-ForensicsPersonalization -RestartExplorer",
             self.config.module_path
         )
-        res2 = run_powershell(code2)
+        res2 = run_powershell_streamed(code2, logger=self.logger)
 
         if res2.returncode != 0:
             self.logger.warn(f'Personalization returned {res2.returncode}: {res2.stderr.strip()}')
@@ -244,7 +244,7 @@ class DisableDefenderInstaller(BaseInstaller):
             self.logger.info('[what-if] Would disable Windows Defender')
             return True
 
-        res = run_powershell(code)
+        res = run_powershell_streamed(code, logger=self.logger)
 
         if res.returncode != 0:
             self.logger.warn(f'Defender disable returned {res.returncode}: {res.stderr.strip()}')
