@@ -61,66 +61,28 @@ class PrepareDesktopGroupsInstaller(BaseInstaller):
 @register_installer('network_check')
 class NetworkCheckInstaller(BaseInstaller):
     """Network connectivity check"""
-    
+
     def get_name(self) -> str:
         return "Network connectivity"
-    
-    def _try_url(self, url: str, allow_insecure: bool = False) -> bool:
-        """Try reaching a URL. On SSL errors, retry with unverified context if allowed."""
-        import urllib.request
-        import ssl
-
-        # First attempt: standard verified SSL
-        try:
-            with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
-                if 200 <= resp.status < 400:
-                    return True
-        except urllib.error.URLError as e:
-            inner = getattr(e, 'reason', None)
-            is_ssl = isinstance(inner, ssl.SSLCertVerificationError) or 'CERTIFICATE_VERIFY_FAILED' in str(e)
-            if is_ssl and allow_insecure:
-                # Retry without cert verification (fresh VMs often lack updated root certs)
-                try:
-                    ctx = ssl.create_default_context()
-                    ctx.check_hostname = False
-                    ctx.verify_mode = ssl.CERT_NONE
-                    with urllib.request.urlopen(url, timeout=10, context=ctx) as resp:  # nosec B310
-                        if 200 <= resp.status < 400:
-                            self.logger.warn(f'Reachable (SSL cert not verified — update root certificates): {url}')
-                            return True
-                except Exception:
-                    pass
-            raise  # re-raise so caller can log
-        return False
 
     def install(self) -> bool:
-        """Check network connectivity with retries for transient DNS failures"""
+        """Check network connectivity"""
         self.logger.info('Checking network connectivity...')
-        
+
         urls = ['https://www.google.com/generate_204', 'https://github.com']
         ok = 0
-        max_retries = 3
-        
+
         for url in urls:
             try:
                 with urllib.request.urlopen(url, timeout=7) as resp:  # nosec B310
                     if 200 <= resp.status < 400:
                         ok += 1
-                        reached = True
                         self.logger.success(f'Reachable: {url}')
-                        break
-                except Exception as e:
-                    err_str = str(e)
-                    is_dns = 'Name or service not known' in err_str or 'getaddrinfo failed' in err_str or 'could not be resolved' in err_str.lower()
-                    if is_dns and attempt < max_retries:
-                        import time
-                        delay = attempt * 5
-                        self.logger.info(f'DNS lookup failed for {url}, retrying in {delay}s ({attempt}/{max_retries})...')
-                        time.sleep(delay)
-                        continue
-                    self.logger.warn(f'Not reachable: {url} ({e})')
-                    break
-        
+                    else:
+                        self.logger.warn(f'Unexpected status {resp.status} for {url}')
+            except Exception as e:
+                self.logger.warn(f'Not reachable: {url} ({e})')
+
         self.logger.info(f'Network connectivity summary: {ok}/{len(urls)} reachable')
         return ok > 0
 
