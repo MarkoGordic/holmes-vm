@@ -36,7 +36,7 @@ class PowerShellInstaller(BaseInstaller):
         ps1_full_path = os.path.join(self.config.repo_dir, self.script_path)
 
         if not os.path.exists(ps1_full_path):
-            self.logger.error(f"Script not found: {ps1_full_path}")
+            self.logger.error(f"Script not found: {ps1_full_path}. Ensure the scripts/windows/ directory exists.")
             return False
 
         args = self.ps_args
@@ -51,7 +51,11 @@ class PowerShellInstaller(BaseInstaller):
         res = run_powershell_streamed(code, logger=self.logger, cwd=self.config.repo_dir)
 
         if res.returncode != 0:
-            self.logger.warn(f"{self.function_name} returned {res.returncode}: {res.stderr.strip()}")
+            stderr = res.stderr.strip()
+            if 'timed out' in stderr.lower():
+                self.logger.error(f"{self.tool_name} timed out. Download or install may be stuck.")
+            else:
+                self.logger.warn(f"{self.tool_name} failed: {stderr[:200]}")
             return False
         else:
             self.logger.success(f"{self.tool_name} completed.")

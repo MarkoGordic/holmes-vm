@@ -85,6 +85,16 @@ def main() -> int:
     """Main entry point. Returns exit code (0=success, non-zero=failure)."""
     args = parse_arguments()
 
+    # Early platform/admin check before any UI loads
+    from holmes_vm.utils.system import is_windows, is_admin
+    if not is_windows():
+        print('Holmes VM Setup requires Windows. Exiting.')
+        return 1
+    if not is_admin():
+        print('Holmes VM Setup requires Administrator privileges.')
+        print('Right-click and select "Run as Administrator".')
+        return 1
+
     # Initialize configuration
     config = get_config()
 
@@ -94,10 +104,16 @@ def main() -> int:
     # Create logger with appropriate UI backend
     logger = create_logger(args.log_dir, ui, rich_ui)
 
+    # What-if mode banner
+    if args.what_if:
+        logger.warn('TEST MODE (--what-if): No changes will be made.')
+
     # Validate config
+    logger.info('Validating configuration...')
     if not config.validate(logger):
         logger.error('Configuration invalid. Fix config/tools.json and try again.')
         return 2
+    logger.success('Configuration valid.')
 
     # Create orchestrator
     orchestrator = SetupOrchestrator(config, logger, args)

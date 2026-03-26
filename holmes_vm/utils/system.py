@@ -142,20 +142,3 @@ def dot_source_and(ps1_path: str, call: str) -> str:
     return f". '{p}'; {call}"
 
 
-def check_network(urls: list = None) -> bool:
-    """Check network connectivity"""
-    import urllib.request
-    
-    if urls is None:
-        urls = ['https://www.google.com/generate_204', 'https://github.com']
-    
-    ok = 0
-    for url in urls:
-        try:
-            with urllib.request.urlopen(url, timeout=7) as resp:  # nosec B310
-                if 200 <= resp.status < 400:
-                    ok += 1
-        except Exception:
-            pass
-    
-    return ok > 0

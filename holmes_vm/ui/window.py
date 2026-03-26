@@ -136,7 +136,7 @@ class UI:
         step_info_frame.pack(fill='x', pady=(0, 8))
         
         self.step_lbl = tk.Label(
-            step_info_frame, text='Step 0/0',
+            step_info_frame, text='Ready',
             fg=COLOR_ACCENT, bg=COLOR_BG, font=self.header_font
         )
         self.step_lbl.pack(side='left')
@@ -152,7 +152,7 @@ class UI:
         
         # Current substatus
         self.substatus_lbl = tk.Label(
-            step_info_frame, text='Preparing…',
+            step_info_frame, text='Waiting for tool selection…',
             fg=COLOR_MUTED, bg=COLOR_BG, font=self.body_font
         )
         self.substatus_lbl.pack(side='left', padx=(15, 0))

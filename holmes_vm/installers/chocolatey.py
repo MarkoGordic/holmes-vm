@@ -48,8 +48,14 @@ class ChocolateyInstaller(BaseInstaller):
         res = run_powershell_streamed(code, logger=self.logger)
 
         if res.returncode != 0:
-            self.logger.warn(f"{self.tool_name} install returned {res.returncode}: {res.stderr.strip()}")
+            stderr = res.stderr.strip()
+            if 'timed out' in stderr.lower():
+                self.logger.error(f"{self.tool_name} timed out. The download or install may be stuck.")
+            elif 'not found' in stderr.lower() or 'no results' in stderr.lower():
+                self.logger.error(f"Package '{self.package_name}' not found in Chocolatey. Check package name in config/tools.json.")
+            else:
+                self.logger.warn(f"{self.tool_name} install failed: {stderr[:200]}")
             return False
         else:
-            self.logger.success(f"{self.tool_name} installed successfully.")
+            self.logger.success(f"{self.tool_name} installed.")
             return True

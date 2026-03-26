@@ -121,7 +121,7 @@ class ModernUI:
         
         self.step_label = ctk.CTkLabel(
             step_frame,
-            text="Step 0/0",
+            text="Ready",
             font=("Segoe UI", 16, "bold"),
             text_color=COLOR_ACCENT
         )
@@ -138,7 +138,7 @@ class ModernUI:
         
         self.substatus_label = ctk.CTkLabel(
             step_frame,
-            text="Preparing...",
+            text="Waiting for tool selection...",
             font=("Segoe UI", 12),
             text_color=COLOR_FG
         )

@@ -10,7 +10,6 @@ from typing import List, Tuple, Callable, Any, Optional
 
 from holmes_vm.core.config import Config
 from holmes_vm.core.logger import Logger
-from holmes_vm.utils.system import is_admin, is_windows
 from holmes_vm.utils.notifications import show_notification
 from holmes_vm.installers.base import get_registry
 from holmes_vm.installers.chocolatey import ChocolateyInstaller
@@ -34,7 +33,7 @@ class SetupOrchestrator:
     def build_steps_from_selection(self, selected_ids: List[str]) -> List[Tuple[str, Callable]]:
         """Build installation steps from selected tool IDs"""
         steps: List[Tuple[str, Callable]] = []
-        steps.append(('Assert Windows/Admin', lambda: self._assert_windows_admin()))
+        # Admin/Windows check is done early in setup.py before UI loads
         prep = PrepareDesktopGroupsInstaller(self.config, self.logger, self.args)
         steps.append((prep.get_name(), lambda inst=prep: inst.install()))
 
@@ -121,13 +120,6 @@ class SetupOrchestrator:
 
         return steps
 
-    def _assert_windows_admin(self):
-        """Assert that we're running on Windows with admin privileges"""
-        if not is_windows():
-            raise RuntimeError('Windows-only setup')
-        if not is_admin():
-            raise RuntimeError('Run as Administrator')
-
     def run_steps(self, steps: List[Tuple[str, Callable]], ui=None, cancel_event: Optional[threading.Event] = None) -> int:
         """Run installation steps. Returns number of failures.
 
@@ -168,10 +160,15 @@ class SetupOrchestrator:
                 failures += 1
                 step_elapsed = time.time() - step_start
                 self.logger.error(f"{name} failed ({step_elapsed:.1f}s): {e}")
-                self.logger.info(f"Skipping to next step...")
+                if i < total:
+                    self.logger.info(f"Skipping to next step...")
 
             if ui:
                 ui.enqueue(('step_result', i, success))
+                # Show what's coming next
+                if i < total:
+                    next_name = steps[i][0]
+                    ui.enqueue(('status', f'Next: {next_name}'))
 
             done_fraction = i / max(1, total)
             elapsed = time.time() - start

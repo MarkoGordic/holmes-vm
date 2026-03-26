@@ -907,6 +907,9 @@ class CreateShortcutInstaller(BaseInstaller):
                         return True
             self.logger.info(f"EZ Tools not found (may not be installed yet)")
             return True
+        elif mode is not None:
+            self.logger.warn(f"Unknown shortcut mode '{mode}' for {tool_name}. Valid: exe_candidates, search_exe, folder_all, eztools")
+            return True
         else:
             # No shortcut metadata - nothing to do
             return True
