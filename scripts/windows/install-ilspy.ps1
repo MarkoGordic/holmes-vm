@@ -46,10 +46,17 @@ function Install-ILSpy {
     $downloadUrl = $null
     try {
         $resp = Invoke-RestMethod -Uri $releaseApi -UseBasicParsing -ErrorAction Stop -Headers @{ 'User-Agent' = 'Holmes-VM-Installer' }
-        $asset = $resp.assets | Where-Object { $_.name -match '(?i)binaries.*\.zip$' } | Select-Object -First 1
+        # Prefer x64 binaries, exclude ARM64/symbols/checksums
+        $asset = $resp.assets | Where-Object {
+            $_.name -match '(?i)binaries.*\.zip$' -and
+            $_.name -notmatch '(?i)(arm64|arm|aarch|symbols|sha|checksum|sig)'
+        } | Select-Object -First 1
         if (-not $asset) {
-            # Fallback: any zip that looks like ILSpy portable/binaries
-            $asset = $resp.assets | Where-Object { $_.name -match '(?i)ilspy.*\.zip$' -and $_.name -notmatch '(?i)(symbols|sha|checksum|sig)$' } | Select-Object -First 1
+            # Fallback: any zip that looks like ILSpy portable/binaries (still exclude ARM)
+            $asset = $resp.assets | Where-Object {
+                $_.name -match '(?i)ilspy.*\.zip$' -and
+                $_.name -notmatch '(?i)(arm64|arm|aarch|symbols|sha|checksum|sig)'
+            } | Select-Object -First 1
         }
         if ($asset) {
             $downloadUrl = $asset.browser_download_url

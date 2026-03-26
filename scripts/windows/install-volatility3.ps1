@@ -25,12 +25,29 @@ function Install-Volatility3 {
     Write-Log -Level Info -Message 'Installing Volatility 3...'
     Ensure-Directory -Path $InstallDir
 
-    # Create virtualenv
+    # Find Python — refresh PATH from registry first since Chocolatey may have
+    # installed Python in this same session and the current process PATH is stale.
+    $machPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:Path = "$machPath;$userPath"
+
     $python = Get-Command python -ErrorAction SilentlyContinue
     if (-not $python) {
         $python = Get-Command python3 -ErrorAction SilentlyContinue
     }
-    if (-not $python) { throw 'Python not found. Install Python first.' }
+    # Try common Chocolatey Python locations
+    if (-not $python) {
+        $chocoExe = 'C:\Python313\python.exe', 'C:\Python312\python.exe',
+                    'C:\Python311\python.exe', 'C:\Python310\python.exe',
+                    'C:\ProgramData\chocolatey\bin\python.exe'
+        foreach ($p in $chocoExe) {
+            if (Test-Path $p) { $python = Get-Item $p; break }
+        }
+    }
+    if (-not $python) {
+        Write-Log -Level Warn -Message 'Python not found. Volatility 3 requires Python. Skipping.'
+        return
+    }
 
     & $python.Source -m venv $venvDir
     $pip = Join-Path $venvDir 'Scripts\pip.exe'

@@ -20,7 +20,9 @@ try {
 
 function Install-Zui {
     [CmdletBinding(SupportsShouldProcess)]
-    param()
+    param(
+        [string]$ShortcutCategory
+    )
 
     Write-Log -Level Info -Message 'Installing Brimdata Zui...'
     if (Get-Command Assert-WindowsAndAdmin -ErrorAction SilentlyContinue) { Assert-WindowsAndAdmin }

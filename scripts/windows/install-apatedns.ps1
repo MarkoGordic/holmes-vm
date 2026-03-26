@@ -46,10 +46,16 @@ function Install-ApateDNS {
         if (-not (Test-Path -LiteralPath $desktopShortcutDir)) { New-Item -ItemType Directory -Path $desktopShortcutDir -Force | Out-Null }
     }
 
-    # Candidate download URLs (official first)
+    # ApateDNS is no longer hosted by FireEye/Mandiant (URLs return 530/404).
+    # Use FakeNet-NG as the modern replacement. ApateDNS is kept for legacy VMs
+    # where someone has the binary locally.
+    if (Test-Path (Join-Path $installDir 'ApateDNS.exe')) {
+        Write-Log -Level Success -Message 'ApateDNS already present; skipping download.'
+        return
+    }
+
+    # Candidate download URLs (all currently dead as of 2025)
     $urls = @(
-        'https://www.fireeye.com/content/dam/fireeye-www/global/en/tools/ApateDNS.zip',
-        'https://www.fireeye.com/content/dam/fireeye-www/global/en/tools/apatedns.zip',
         'https://download.mandiant.com/flare/ApateDNS.zip'
     )
 

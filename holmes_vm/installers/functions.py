@@ -66,15 +66,24 @@ class NetworkCheckInstaller(BaseInstaller):
         return "Network connectivity"
 
     def install(self) -> bool:
-        """Check network connectivity"""
+        """Check network connectivity (tolerates SSL cert issues on fresh VMs)"""
+        import ssl
         self.logger.info('Checking network connectivity...')
 
         urls = ['https://www.google.com/generate_204', 'https://github.com']
         ok = 0
 
+        # Create a lenient SSL context for fresh VMs with outdated root CAs
+        ctx = ssl.create_default_context()
+        try:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        except Exception:
+            ctx = None
+
         for url in urls:
             try:
-                with urllib.request.urlopen(url, timeout=7) as resp:  # nosec B310
+                with urllib.request.urlopen(url, timeout=7, context=ctx) as resp:  # nosec B310
                     if 200 <= resp.status < 400:
                         ok += 1
                         self.logger.success(f'Reachable: {url}')

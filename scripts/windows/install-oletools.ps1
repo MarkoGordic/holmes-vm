@@ -18,15 +18,27 @@ function Install-OleTools {
     Set-Tls12IfNeeded
     Ensure-Directory -Path $InstallDir
 
+    # Refresh PATH from registry — Chocolatey may have installed Python in this session
+    $machPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:Path = "$machPath;$userPath"
+
     # Try system Python first, then fall back to py launcher
     $python = $null
     foreach ($cmd in @('python', 'python3', 'py')) {
         $found = Get-Command $cmd -ErrorAction SilentlyContinue
         if ($found) { $python = $found.Source; break }
     }
+    # Try common Chocolatey Python locations
+    if (-not $python) {
+        foreach ($p in @('C:\Python313\python.exe', 'C:\Python312\python.exe',
+                         'C:\Python311\python.exe', 'C:\ProgramData\chocolatey\bin\python.exe')) {
+            if (Test-Path $p) { $python = $p; break }
+        }
+    }
 
     if (-not $python) {
-        Write-Log -Level Warning -Message 'Python not found. Please install Python first, then run: pip install oletools'
+        Write-Log -Level Warn -Message 'Python not found. Skipping oletools install.'
         return
     }
 

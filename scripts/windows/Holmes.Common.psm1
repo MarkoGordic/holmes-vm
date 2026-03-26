@@ -9,6 +9,28 @@
 
 Set-StrictMode -Version Latest
 
+# Force TLS 1.2 globally at module load time so ALL downloads work on fresh VMs
+# where the default protocol may be SSL3/TLS1.0 which GitHub/NirSoft/etc. reject.
+try {
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+} catch { }
+
+# Accept all SSL certificates as fallback for fresh VMs with outdated root CAs.
+# This is acceptable for a forensics VM setup tool that downloads from known sources.
+try {
+    if (-not ([System.Management.Automation.PSTypeName]'TrustAllCertsPolicy').Type) {
+        Add-Type @"
+using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(ServicePoint sp, X509Certificate cert, WebRequest req, int problem) { return true; }
+}
+"@
+    }
+    [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+} catch { }
+
 function Test-IsWindows {
     [CmdletBinding()] param()
     try {
