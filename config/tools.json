@@ -167,6 +167,25 @@
           }
         },
         {
+          "id": "winrar",
+          "name": "WinRAR",
+          "description": "Powerful archive manager supporting RAR, ZIP, and 70+ formats",
+          "desktop_group": "Utilities",
+          "default": true,
+          "installer_type": "chocolatey",
+          "package_name": "winrar",
+          "shortcut": {
+            "mode": "search_exe",
+            "display_name": "WinRAR",
+            "exe_name": "WinRAR.exe",
+            "search_roots": [
+              "C:\\Program Files\\WinRAR",
+              "C:\\Program Files (x86)\\WinRAR",
+              "C:\\ProgramData\\chocolatey\\lib\\winrar"
+            ]
+          }
+        },
+        {
           "id": "everything",
           "name": "Everything Search",
           "description": "Instant file search by name across all drives",
