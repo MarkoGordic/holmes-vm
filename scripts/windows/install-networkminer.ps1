@@ -1,113 +1,151 @@
-try { if (-not (Get-Command Write-Log -ErrorAction SilentlyContinue)) { $commonPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'modules/Holmes.Common.psm1'; if (Test-Path -LiteralPath $commonPath) { Import-Module $commonPath -ErrorAction SilentlyContinue } } } catch { }
-try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
+<#
+.SYNOPSIS
+  Install NetworkMiner (network forensics tool) from netresec.com and create desktop shortcuts.
 
-$script:InstallerName = "NetworkMiner"
-$script:LogDirDefault = Join-Path $env:ProgramData 'HolmesVM/Logs'
-$script:LogFilePath = $null
+.NOTES
+  - Downloads directly from netresec.com (redirect URL → latest versioned ZIP).
+  - Falls back to Chocolatey if direct download fails.
+  - Extracts to C:\Tools\NetworkMiner and unblocks all files.
+  - Creates a desktop shortcut (optionally in a category subfolder).
+#>
 
-function Initialize-Logging { [CmdletBinding()] param([string]$LogDir) try { if (-not $LogDir) { $LogDir = $script:LogDirDefault } if (-not (Test-Path -LiteralPath $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null } $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'; $script:LogFilePath = Join-Path $LogDir ("NetworkMiner-install-$timestamp.log"); try { Start-Transcript -Path $script:LogFilePath -Append -ErrorAction Stop | Out-Null } catch { } } catch { } }
-function Add-LogLine { [CmdletBinding()] param([Parameter(Mandatory)][ValidateSet('Info','Warn','Error','Success')][string]$Level,[Parameter(Mandatory)][string]$Message) $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; try { if ($script:LogFilePath) { Add-Content -Path $script:LogFilePath -Value "[$ts] [$($Level.ToUpper())] $Message" -ErrorAction SilentlyContinue } } catch { } try { if (Get-Command Write-Log -ErrorAction SilentlyContinue) { Write-Log -Level $Level -Message $Message } else { Write-Host $Message } } catch { } }
-function Update-InstallProgress { [CmdletBinding()] param([Parameter(Mandatory)][int]$Percent,[Parameter(Mandatory)][string]$Status,[string]$CurrentTask) $activity = "Installing $script:InstallerName"; $statusMsg = if ($CurrentTask) { "$Status - $CurrentTask" } else { $Status }; try { Write-Progress -Activity $activity -Status $statusMsg -PercentComplete $Percent } catch { } }
-function Invoke-ProgressStep { [CmdletBinding()] param([Parameter(Mandatory)][string]$Name,[Parameter(Mandatory)][scriptblock]$Action,[Parameter(Mandatory)][int]$StepIndex,[Parameter(Mandatory)][int]$TotalSteps,[switch]$ContinueOnError) $percent = [int](($StepIndex / [double]$TotalSteps) * 100); Update-InstallProgress -Percent $percent -Status "Working ($StepIndex/$TotalSteps)" -CurrentTask $Name; Add-LogLine -Level Info -Message "$Name..."; try { & $Action; Add-LogLine -Level Success -Message "$Name completed."; return $true } catch { Add-LogLine -Level Error -Message "$Name failed: $($_.Exception.Message)"; if ($ContinueOnError) { return $false } throw } }
+Set-StrictMode -Version Latest
 
-function Test-ChocoPackageInstalled { param([Parameter(Mandatory)][string]$Name) try { $pkg = choco list --local-only --exact $Name 2>$null | Select-String "^$Name\s"; return [bool]$pkg } catch { return $false } }
-function Install-ViaChocolatey { [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)][string]$PackageName) if (Test-ChocoPackageInstalled -Name $PackageName) { Add-LogLine -Level Success -Message "$PackageName already installed via Chocolatey"; return $true } try { if ($PSCmdlet.ShouldProcess($PackageName,'choco install')) { choco install $PackageName -y --no-progress | Out-Null } return (Test-ChocoPackageInstalled -Name $PackageName) } catch { Add-LogLine -Level Warn -Message "Chocolatey install failed: $($_.Exception.Message)"; return $false } }
-
-function Invoke-SafeDownload { [CmdletBinding()] param([Parameter(Mandatory)][string]$Uri,[Parameter(Mandatory)][string]$OutFile) try { Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -ErrorAction Stop; return $true } catch { try { (New-Object System.Net.WebClient).DownloadFile($Uri,$OutFile); return $true } catch { return $false } } }
-function Expand-Zip { param([Parameter(Mandatory)][string]$ZipPath,[Parameter(Mandatory)][string]$Destination) Expand-Archive -Path $ZipPath -DestinationPath $Destination -Force }
-function Ensure-Directory { param([Parameter(Mandatory)][string]$Path) if (-not (Test-Path -LiteralPath $Path)) { New-Item -ItemType Directory -Path $Path -Force | Out-Null } }
+# Try to import common module for logging/helpers if available when run standalone
+try {
+    if (-not (Get-Command Write-Log -ErrorAction SilentlyContinue)) {
+        $commonPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'modules/Holmes.Common.psm1'
+        if (Test-Path -LiteralPath $commonPath) { Import-Module $commonPath -ErrorAction SilentlyContinue }
+    }
+} catch { }
 
 function Install-NetworkMiner {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [string]$Destination = 'C:\\Tools\\NetworkMiner',
-        [string]$LogDir,
+        [string]$Destination = 'C:\Tools\NetworkMiner',
         [string]$ShortcutCategory,
         [switch]$SkipShortcuts
     )
 
-    Initialize-Logging -LogDir $LogDir
-    Add-LogLine -Level Info -Message "Starting installation of $script:InstallerName"
+    Write-Log -Level Info -Message 'Installing NetworkMiner...'
+    if (Get-Command Assert-WindowsAndAdmin -ErrorAction SilentlyContinue) { Assert-WindowsAndAdmin }
 
-    if (-not $PSCmdlet.ShouldProcess($Destination, "Install $script:InstallerName")) { Add-LogLine -Level Info -Message "WhatIf: Would install $script:InstallerName to $Destination"; return }
+    $installDir    = $Destination
+    $zipPath       = Join-Path $env:TEMP 'NetworkMiner-latest.zip'
+    $desktopRoot   = Join-Path $env:USERPROFILE 'Desktop'
+    $desktopShortcutDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) {
+        Join-Path $desktopRoot $ShortcutCategory
+    } else {
+        Join-Path $desktopRoot 'NetworkMiner'
+    }
 
-    $total = 9; $step = 0
-    $nmZip = Join-Path $env:TEMP 'NetworkMiner-latest.zip'
-    $nmUrlPrimary = 'https://chocolatey.org/api/v2/package/networkminer' # placeholder if Choco exists
-    $nmDirectUrl = 'https://www.netresec.com/?download=NetworkMiner' # landing page, will redirect; we will use versioned link below
+    Ensure-Directory -Path $installDir
+    Ensure-Directory -Path $desktopShortcutDir
 
-    Invoke-ProgressStep -Name 'Check OS and Admin' -StepIndex (++$step) -TotalSteps $total -Action { if (Get-Command Assert-WindowsAndAdmin -ErrorAction SilentlyContinue) { Assert-WindowsAndAdmin } else { Add-LogLine -Level Warn -Message 'Common module not loaded; proceeding without explicit admin check.' } } | Out-Null
+    # Already-installed check
+    $existingExe = Get-ChildItem -Path $installDir -Recurse -Filter 'NetworkMiner.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($existingExe) {
+        Write-Log -Level Success -Message 'NetworkMiner already installed; skipping download.'
+        return
+    }
 
-    # Manual install first
-    $manualOk = $false
+    Set-Tls12IfNeeded
+
+    # --- Primary: direct download from netresec.com ---
+    # The redirect URL always points to the latest release ZIP.
+    $downloadUrl = 'https://www.netresec.com/?download=NetworkMiner'
+
+    # Try to resolve a versioned link from the download page (more reliable for redirects)
     try {
-        Invoke-ProgressStep -Name 'Prepare destination' -StepIndex (++$step) -TotalSteps $total -Action { Ensure-Directory -Path $Destination } | Out-Null
-
-        $nmVersionedUrl = $null
-        Invoke-ProgressStep -Name 'Resolve latest direct URL' -StepIndex (++$step) -TotalSteps $total -Action {
-            try {
-                $landing = Invoke-WebRequest -Uri 'https://www.netresec.com/?page=NetworkMiner' -UseBasicParsing -ErrorAction Stop
-                $link = ($landing.Links | Where-Object { $_.href -match 'NetworkMiner_.*?\.zip$' } | Select-Object -First 1).href
-                if ($link -and ($link -match '^https?://')) { $script:nmVersionedUrl = $link } else {
-                    # fallback known pattern (may need update over time)
-                    $script:nmVersionedUrl = 'https://www.netresec.com/?download=NetworkMiner'
-                }
-            } catch { $script:nmVersionedUrl = 'https://www.netresec.com/?download=NetworkMiner' }
-        } | Out-Null
-
-        Invoke-ProgressStep -Name 'Download (direct)' -StepIndex (++$step) -TotalSteps $total -Action { if (-not (Invoke-SafeDownload -Uri $script:nmVersionedUrl -OutFile $nmZip)) { throw 'Download failed' } } | Out-Null
-        Invoke-ProgressStep -Name 'Extract' -StepIndex (++$step) -TotalSteps $total -Action { Expand-Zip -ZipPath $nmZip -Destination $Destination } | Out-Null
-        Invoke-ProgressStep -Name 'Unblock files' -StepIndex (++$step) -TotalSteps $total -Action { Get-ChildItem -Path $Destination -Recurse -File | Unblock-File -ErrorAction SilentlyContinue } | Out-Null
-        Invoke-ProgressStep -Name 'Cleanup' -StepIndex (++$step) -TotalSteps $total -Action { if (Test-Path -LiteralPath $nmZip) { Remove-Item -Path $nmZip -Force -ErrorAction SilentlyContinue } } | Out-Null
-        $manualOk = $true
-    } catch {
-        Add-LogLine -Level Warn -Message "Manual install failed, will try Chocolatey: $($_.Exception.Message)"
-        $manualOk = $false
-    }
-
-    if (-not $manualOk) {
-        Invoke-ProgressStep -Name 'Try Chocolatey' -StepIndex (++$step) -TotalSteps $total -Action { $script:chocoOk = Install-ViaChocolatey -PackageName 'networkminer' } | Out-Null
-        if ($script:chocoOk) {
-            Invoke-ProgressStep -Name 'Locate install path' -StepIndex (++$step) -TotalSteps $total -Action {
-                try {
-                    $pkgInfo = choco info networkminer --exact --limit-output 2>$null
-                    # Chocolatey typically installs portable packages under C:\tools or ProgramData\chocolatey\lib
-                    if (Test-Path 'C:\tools\NetworkMiner') { $Destination = 'C:\tools\NetworkMiner' }
-                    elseif (Test-Path 'C:\ProgramData\chocolatey\lib\networkminer') {
-                        $cand = Get-ChildItem 'C:\ProgramData\chocolatey\lib\networkminer' -Recurse -Filter 'NetworkMiner.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-                        if ($cand) { $Destination = $cand.Directory.FullName }
-                    }
-                } catch { }
-            } | Out-Null
-        } else {
-            Add-LogLine -Level Error -Message 'NetworkMiner installation failed (manual and Chocolatey).'
+        $headers = @{ 'User-Agent' = 'HolmesVM/1.0 (+https://github.com/MarkoGordic/holmes-vm)' }
+        $resp = Invoke-WebRequest -Uri 'https://www.netresec.com/?page=NetworkMiner' -UseBasicParsing -Headers $headers -TimeoutSec 30 -ErrorAction Stop
+        $link = ($resp.Links | Where-Object { $_.href -match 'NetworkMiner_\d[\d.]+\.zip$' } | Select-Object -First 1).href
+        if ($link -match '^https?://') {
+            $downloadUrl = $link
+            Write-Log -Level Info -Message "Resolved versioned URL: $downloadUrl"
         }
+    } catch {
+        Write-Log -Level Info -Message "Could not scrape versioned URL; using redirect URL."
     }
 
-    # Create desktop shortcut if executable found and shortcuts are not skipped
-    $exe = Get-ChildItem -Path $Destination -Recurse -Filter 'NetworkMiner.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($exe) {
-        if (-not $SkipShortcuts) {
-            try {
-                $desktop = [Environment]::GetFolderPath('Desktop')
-                $targetDir = if ($PSBoundParameters.ContainsKey('ShortcutCategory') -and $ShortcutCategory) { Join-Path $desktop $ShortcutCategory } else { $desktop }
-                if (-not (Test-Path -LiteralPath $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
-                $lnkPath = Join-Path $targetDir 'NetworkMiner.lnk'
-                $wsh = New-Object -ComObject WScript.Shell
-                $sc = $wsh.CreateShortcut($lnkPath)
-                $sc.TargetPath = $exe.FullName
-                $sc.WorkingDirectory = $exe.Directory.FullName
-                $sc.WindowStyle = 1
-                $sc.Description = 'NetworkMiner'
-                $sc.Save()
-                Add-LogLine -Level Success -Message "Shortcut created: $lnkPath"
-            } catch { Add-LogLine -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)" }
+    $downloaded = $false
+    Write-Log -Level Info -Message "Downloading NetworkMiner from: $downloadUrl"
+    try {
+        Invoke-SafeDownload -Uri $downloadUrl -OutFile $zipPath -ErrorAction Stop | Out-Null
+        if (Test-Path -LiteralPath $zipPath) { $downloaded = $true }
+    } catch {
+        Write-Log -Level Warn -Message "Direct download failed: $($_.Exception.Message)"
+    }
+
+    # --- Fallback: Chocolatey ---
+    if (-not $downloaded) {
+        Write-Log -Level Info -Message 'Trying Chocolatey fallback...'
+        try {
+            choco install networkminer -y --no-progress 2>&1 | ForEach-Object { Write-Log -Level Info -Message $_ }
+            # Chocolatey installs to C:\tools\NetworkMiner or ProgramData\chocolatey\lib\networkminer
+            foreach ($candidate in @('C:\tools\NetworkMiner', 'C:\ProgramData\chocolatey\lib\networkminer\tools')) {
+                if (Test-Path $candidate) {
+                    $chocoExe = Get-ChildItem $candidate -Recurse -Filter 'NetworkMiner.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+                    if ($chocoExe) {
+                        Write-Log -Level Success -Message "NetworkMiner installed via Chocolatey at $($chocoExe.FullName)"
+                        $installDir = $chocoExe.Directory.FullName
+                    }
+                }
+            }
+        } catch {
+            Write-Log -Level Error -Message "Chocolatey install failed: $($_.Exception.Message)"
+        }
+
+        # Verify something installed
+        $finalExe = Get-ChildItem -Path $installDir -Recurse -Filter 'NetworkMiner.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $finalExe) {
+            Write-Log -Level Error -Message 'NetworkMiner could not be installed (both direct download and Chocolatey failed).'
+            return
         }
     } else {
-        Add-LogLine -Level Warn -Message 'NetworkMiner.exe not found after installation.'
+        # Extract the downloaded ZIP
+        try {
+            Expand-Zip -ZipPath $zipPath -Destination $installDir
+            Write-Log -Level Success -Message "Extracted to $installDir"
+        } catch {
+            Write-Log -Level Error -Message "Extraction failed: $($_.Exception.Message)"
+            return
+        } finally {
+            try { if (Test-Path -LiteralPath $zipPath) { Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue } } catch { }
+        }
+
+        # Unblock all extracted files (SmartScreen / zone identifier)
+        try { Get-ChildItem -Path $installDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue } catch { }
     }
 
-    Update-InstallProgress -Percent 100 -Status 'Completed' -CurrentTask ''
-    Add-LogLine -Level Success -Message "$script:InstallerName installation finished."
-    try { Stop-Transcript | Out-Null } catch { }
+    # Add to PATH
+    try { Add-PathIfMissing -Path $installDir -Scope Machine } catch { }
+
+    # Locate executable (may be in a versioned subfolder, e.g. NetworkMiner_2-9\NetworkMiner.exe)
+    $exe = Get-ChildItem -Path $installDir -Recurse -Filter 'NetworkMiner.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $exe) {
+        Write-Log -Level Warn -Message 'NetworkMiner.exe not found after installation.'
+        return
+    }
+
+    # Create desktop shortcut
+    if (-not $SkipShortcuts) {
+        try {
+            $wsh = New-Object -ComObject WScript.Shell
+            $lnkPath = Join-Path $desktopShortcutDir 'NetworkMiner.lnk'
+            $sc = $wsh.CreateShortcut($lnkPath)
+            $sc.TargetPath      = $exe.FullName
+            $sc.WorkingDirectory = $exe.Directory.FullName
+            $sc.WindowStyle     = 1
+            $sc.Description     = 'NetworkMiner – Network Forensics Analyser'
+            $sc.Save()
+            Write-Log -Level Success -Message "Desktop shortcut created: $lnkPath"
+        } catch {
+            Write-Log -Level Warn -Message "Failed to create shortcut: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Log -Level Success -Message 'NetworkMiner installation completed.'
 }
+
+# Note: This script is dot-sourced by the orchestrator and not intended to auto-run.
