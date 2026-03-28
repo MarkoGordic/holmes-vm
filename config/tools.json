@@ -939,13 +939,53 @@
         },
         {
           "id": "pdftools",
-          "name": "pdf-parser & pdfid",
-          "description": "Didier Stevens PDF analysis tools",
+          "name": "Didier Stevens Suite",
+          "description": "pdf-parser, pdfid, oledump, emldump, zipdump, base64dump",
           "desktop_group": "Document Analysis",
           "default": true,
           "installer_type": "powershell",
           "script_path": "scripts/windows/install-pdftools.ps1",
           "function_name": "Install-PDFTools"
+        },
+        {
+          "id": "officemalscanner",
+          "name": "OfficeMalScanner",
+          "description": "Scan Office docs for shellcode, encrypted macros, and PE anomalies",
+          "desktop_group": "Document Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-officemalscanner.ps1",
+          "function_name": "Install-OfficeMalScanner"
+        },
+        {
+          "id": "offvis",
+          "name": "OffVis",
+          "description": "Microsoft Office binary format visualizer for document structure analysis",
+          "desktop_group": "Document Analysis",
+          "default": false,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-offvis.ps1",
+          "function_name": "Install-OffVis"
+        },
+        {
+          "id": "msoffcrypto",
+          "name": "msoffcrypto-tool",
+          "description": "Decrypt password-protected MS Office documents (97-2019)",
+          "desktop_group": "Document Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-msoffcrypto.ps1",
+          "function_name": "Install-MsOffCrypto"
+        },
+        {
+          "id": "xlmmacrodeobfuscator",
+          "name": "XLMMacroDeobfuscator",
+          "description": "Deobfuscate Excel 4.0 XLM macros used in malicious documents",
+          "desktop_group": "Document Analysis",
+          "default": true,
+          "installer_type": "powershell",
+          "script_path": "scripts/windows/install-xlmmacrodeobfuscator.ps1",
+          "function_name": "Install-XLMMacroDeobfuscator"
         }
       ]
     },
